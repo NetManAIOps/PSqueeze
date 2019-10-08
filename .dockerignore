@@ -21,8 +21,8 @@ B3
 B4
 A
 D
-data/
 .DS_Store
 .venv/
+data/
+result/
 .*
-!.dockerignore
