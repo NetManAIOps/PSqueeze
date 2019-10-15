@@ -40,6 +40,7 @@ class Squeeze:
         self.attribute_names = list(sorted(set(self.derived_data.columns) - {'real', 'predict'}))
         logger.debug(f"available attributes: {self.attribute_names}")
 
+        # NOTE: derived_data match to data_list one by one
         self.derived_data.sort_values(by=self.attribute_names, inplace=True)
         self.data_list = list(map(lambda x: x.sort_values(by=self.attribute_names), self.data_list))
 
@@ -105,8 +106,10 @@ class Squeeze:
             logger.warning(f"try to rerun {self}")
             return self
         if self.option.enable_filter:
+            # TODO: change for PSqueeze
             kpi_filter = KPIFilter(self._v, self._f)
             self.filtered_indices = kpi_filter.filtered_indices
+            # self.leaf_deviation_score: numpy.ndarray
             cluster_list = self.one_dim_cluster(self.leaf_deviation_score[self.filtered_indices])
             cluster_list = list(
                 [kpi_filter.inverse_map(_) for _ in cluster_list]
@@ -269,7 +272,11 @@ class Squeeze:
 
     @property
     @lru_cache()
-    def leaf_deviation_score(self):
+    def leaf_deviation_score_with_variance(self):
+        '''
+        Return: numpy.ndarray([(D(-1), D(0), D(+1))...])
+        '''
+        # TODO: change for PSqueeze here
         with np.errstate(divide='ignore', invalid='ignore'):
             deviation_scores = self.__deviation_score(self._v, self._f)
         assert np.shape(deviation_scores) == np.shape(self._v) == np.shape(self._f)
@@ -279,6 +286,18 @@ class Squeeze:
             f"there are infinity in deviation score {np.where(~np.isfinite(deviation_scores))}"
         logger.debug(f"anomaly ratio ranges in [{np.min(deviation_scores)}, {np.max(deviation_scores)}]")
         return deviation_scores
+
+    # NOTE: original leaf_deviation_score here
+    # def leaf_deviation_score(self):
+    #     with np.errstate(divide='ignore', invalid='ignore'):
+    #         deviation_scores = self.__deviation_score(self._v, self._f)
+    #     assert np.shape(deviation_scores) == np.shape(self._v) == np.shape(self._f)
+    #     assert np.sum(np.isnan(deviation_scores)) == 0, \
+    #         f"there are nan in deviation score {np.where(np.isnan(deviation_scores))}"
+    #     assert np.sum(~np.isfinite(deviation_scores)) == 0, \
+    #         f"there are infinity in deviation score {np.where(~np.isfinite(deviation_scores))}"
+    #     logger.debug(f"anomaly ratio ranges in [{np.min(deviation_scores)}, {np.max(deviation_scores)}]")
+    #     return deviation_scores
 
     def get_derived_dataframe(self, ac_set: Union[FrozenSet[AC], None], cuboid: Tuple[str] = None,
                               reduction=None, return_complement=False, subset_indices=None):
@@ -319,6 +338,19 @@ class Squeeze:
 
     @staticmethod
     def __deviation_score(v, f):
+        n = 1
+        with np.errstate(divide='ignore'):
+            ret = n * (f - v) / (n * f + v)
+            # ret = np.log(np.maximum(v, 1e-10)) - np.log(np.maximum(f, 1e-10))
+            # ret = (2 * sigmoid(1 - v / f) - 1)
+            # k = np.log(np.maximum(v, 1e-100)) - np.log(np.maximum(f, 1e-100))
+            # ret = (1 - k) / (1 + k)
+        ret[np.isnan(ret)] = 0.
+        return ret
+
+    @staticmethod
+    def __deviation_score_with_variance(v, f):
+    # TODO
         n = 1
         with np.errstate(divide='ignore'):
             ret = n * (f - v) / (n * f + v)
