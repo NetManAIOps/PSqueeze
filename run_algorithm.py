@@ -103,6 +103,9 @@ def executor(file_path: Path, output_path: Path, **kwargs) -> Dict:
         option=SqueezeOption(
             debug=debug,
             fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
+            # NOTE: for PSqueeze setting
+            density_estimation_method="histogram_prob", 
+            histogram_bar_width=1,
             **kwargs,
         )
     )

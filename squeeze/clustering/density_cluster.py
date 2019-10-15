@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from squeeze.clustering.cluster import Cluster
 from squeeze.squeeze_option import SqueezeOption
 from kneed import KneeLocator
+from scipy.special import factorial
 
 
 def smooth(arr, window_size):
@@ -20,10 +21,11 @@ def smooth(arr, window_size):
 class DensityBased1dCluster(Cluster):
     def __init__(self, option: SqueezeOption):
         super().__init__(option)
-        assert option.density_estimation_method in {'kde', 'histogram'}
+        assert option.density_estimation_method in {'kde', 'histogram', 'histogram_prob'}
         self.density_estimation_func = {
             "kde": self._kde,
             "histogram": self._histogram,
+            "histogram_prob": self._histogram_prob,
         }[option.density_estimation_method]
 
     def _kde(self, array: np.ndarray):
@@ -35,11 +37,13 @@ class DensityBased1dCluster(Cluster):
         return kde_sample_smoothed, samples
 
     def _histogram(self, array: np.ndarray):
+        assert len(array.shape) == 1, f"histogram receives array with shape {array.shape}"
         def _get_hist(_width):
             if _width == 'auto':
                 _edges = np.histogram_bin_edges(array, 'auto').tolist()
-                _edges = [_edges[0] - 0.1 * i for i in range(-5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in
-                                                                                     range(1, 6)]
+                # NOTE: bug?
+                # _edges = [_edges[0] - 0.1 * i for i in range(-5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
+                _edges = [_edges[0] - 0.1 * i for i in range(5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
             else:
                 _edges = np.arange(array_range[0] - _width * 6, array_range[1] + _width * 5, _width)
             h, edges = np.histogram(array, bins=_edges, density=True)
@@ -48,15 +52,15 @@ class DensityBased1dCluster(Cluster):
             # h = np.convolve(h, conv_kernel, 'full') / np.sum(conv_kernel)
             return h, np.convolve(edges, [1, 1], 'valid') / 2
 
-        def _get_score(_clusters):
-            if len(_clusters) <= 0:
-                return float('-inf')
-            _mu = np.concatenate([np.repeat(np.mean(array[idx]), np.size(idx)) for idx in _clusters])
-            _sigma = np.concatenate([np.repeat(np.std(array[idx]), np.size(idx)) for idx in _clusters]) + 1e-8
-            # _arrays = np.concatenate([array[idx] for idx in _clusters])
-            # _scores = np.sum(- np.log(_sigma) - np.square((_arrays - _mu) / _sigma))
-            _scores = np.max(_sigma)
-            return _scores
+        # def _get_score(_clusters):
+        #     if len(_clusters) <= 0:
+        #         return float('-inf')
+        #     _mu = np.concatenate([np.repeat(np.mean(array[idx]), np.size(idx)) for idx in _clusters])
+        #     _sigma = np.concatenate([np.repeat(np.std(array[idx]), np.size(idx)) for idx in _clusters]) + 1e-8
+        #     # _arrays = np.concatenate([array[idx] for idx in _clusters])
+        #     # _scores = np.sum(- np.log(_sigma) - np.square((_arrays - _mu) / _sigma))
+        #     _scores = np.max(_sigma)
+        #     return _scores
 
         array_range = np.min(array), np.max(array)
         width = self.option.histogram_bar_width
@@ -75,6 +79,27 @@ class DensityBased1dCluster(Cluster):
         #     logger.debug(f"{x_list}, {y_list}, {split}")
         #     width = split
 
+        return _get_hist(width)
+
+    def _histogram_prob(self, array: np.ndarray):
+        '''
+        get histogram with probability weight
+        '''
+        # NOTE: for PSqueeze
+        assert len(array.shape) == 2, f"histogram_prob receives array with shape {array.shape}"
+        def _get_hist(_width):
+            possion_prob = lambda x: (x[1]**x)*(np.math.e**(-x[1]))/factorial(x)
+            _weights = np.apply_along_axis(func1d=possion_prob, axis=1, arr=array)
+            assert _width != 'auto', "numpy.histogram_bin_edges: weighted bin estimators are not currently available, but may be in the future"
+            if _width == 'auto':
+                _edges = np.histogram_bin_edges(array, bins='auto', weights=_weights).tolist()
+                _edges = [_edges[0] - 0.1 * i for i in range(5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
+            else: _edges = np.arange(array_range[0] - _width * 6, array_range[1] + _width * 5, _width)
+            h, edges = np.histogram(array, bins=_edges, weights=_weights, density=True)
+            # h /= 100.
+            return h, np.convolve(edges, [1, 1], 'valid') / 2
+        array_range = np.min(array), np.max(array)
+        width = self.option.histogram_bar_width
         return _get_hist(width)
 
     def _cluster(self, array, density_array: np.ndarray, bins, plot=False):
@@ -140,6 +165,12 @@ class DensityBased1dCluster(Cluster):
             # ax2.plot(bins, smoothed_density_array, label="smoothed", linestyle="-.")
             # ax2.set_ylim([0, None])
         clusters = self._cluster(array, smoothed_density_array, bins, plot=self.option.debug)
+        # NOTE: checkpoint
+        # print("density_array:", density_array)
+        # print("bins:", bins)
+        # print("smoothed_density_array:", smoothed_density_array)
+        # print("clusters:", clusters)
+        # input("check point")
         if self.option.debug:
             for cluster in clusters:
                 left_boundary, right_boundary = np.min(array[cluster]), np.max(array[cluster])

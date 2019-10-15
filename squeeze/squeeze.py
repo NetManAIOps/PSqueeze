@@ -24,7 +24,7 @@ class Squeeze:
         """
         self.option = option
 
-        self.one_dim_cluster = cluster_factory(self.option)
+        self.one_dim_cluster = cluster_factory(self.option) # DensityBased1dCluster(option)
         self.cluster_list = []  # type: List[np.ndarray]
 
         valid_idx = np.logical_and.reduce(
@@ -106,11 +106,11 @@ class Squeeze:
             logger.warning(f"try to rerun {self}")
             return self
         if self.option.enable_filter:
-            # TODO: change for PSqueeze
             kpi_filter = KPIFilter(self._v, self._f)
             self.filtered_indices = kpi_filter.filtered_indices
-            # self.leaf_deviation_score: numpy.ndarray
-            cluster_list = self.one_dim_cluster(self.leaf_deviation_score[self.filtered_indices])
+            # TODO: change for PSqueeze
+            # cluster_list = self.one_dim_cluster(self.leaf_deviation_score[self.filtered_indices])
+            cluster_list = self.one_dim_cluster(self.leaf_deviation_score_with_variance[self.filtered_indices])
             cluster_list = list(
                 [kpi_filter.inverse_map(_) for _ in cluster_list]
             )
@@ -272,11 +272,35 @@ class Squeeze:
 
     @property
     @lru_cache()
-    def leaf_deviation_score_with_variance(self):
+    def leaf_deviation_score_with_variance(self, bias=1, min=0) -> np.ndarray:
         '''
-        Return: numpy.ndarray([(D(-1), D(0), D(+1))...])
+        Return: numpy.array([[D(-1), D(0), D(+1)],...])
         '''
-        # TODO: change for PSqueeze here
+        # NOTE: for PSqueeze
+        with np.errstate(divide='ignore', invalid='ignore'):
+            _minus = self.__deviation_score((self._v-bias).clip(min=min), self._f)
+            _origin = self.__deviation_score(self._v, self._f)
+            _plus = self.__deviation_score(self._v+bias, self._f)
+            deviation_scores = np.array((_minus, _origin, _plus)).T
+            del _minus, _origin, _plus
+        # NOTE: checkpoint
+        # print("_v:", self._v[:4])
+        # print("_f:", self._f[:4])
+        # print("deviation_scores:", deviation_scores[:4])
+        # input("check point")
+        assert np.shape(deviation_scores)[0] == np.shape(self._v)[0] == np.shape(self._f)[0], \
+            f"bad deviation score shape {np.shape(deviation_scores)}"
+        assert np.sum(np.isnan(deviation_scores)) == 0, \
+            f"there are nan in deviation score {np.where(np.isnan(deviation_scores))}"
+        assert np.sum(~np.isfinite(deviation_scores)) == 0, \
+            f"there are infinity in deviation score {np.where(~np.isfinite(deviation_scores))}"
+        logger.debug(f"anomaly ratio ranges in [{np.min(deviation_scores)}, {np.max(deviation_scores)}]")
+        return deviation_scores
+
+    # NOTE: original leaf_deviation_score here
+    @property
+    @lru_cache()
+    def leaf_deviation_score(self):
         with np.errstate(divide='ignore', invalid='ignore'):
             deviation_scores = self.__deviation_score(self._v, self._f)
         assert np.shape(deviation_scores) == np.shape(self._v) == np.shape(self._f)
@@ -286,18 +310,6 @@ class Squeeze:
             f"there are infinity in deviation score {np.where(~np.isfinite(deviation_scores))}"
         logger.debug(f"anomaly ratio ranges in [{np.min(deviation_scores)}, {np.max(deviation_scores)}]")
         return deviation_scores
-
-    # NOTE: original leaf_deviation_score here
-    # def leaf_deviation_score(self):
-    #     with np.errstate(divide='ignore', invalid='ignore'):
-    #         deviation_scores = self.__deviation_score(self._v, self._f)
-    #     assert np.shape(deviation_scores) == np.shape(self._v) == np.shape(self._f)
-    #     assert np.sum(np.isnan(deviation_scores)) == 0, \
-    #         f"there are nan in deviation score {np.where(np.isnan(deviation_scores))}"
-    #     assert np.sum(~np.isfinite(deviation_scores)) == 0, \
-    #         f"there are infinity in deviation score {np.where(~np.isfinite(deviation_scores))}"
-    #     logger.debug(f"anomaly ratio ranges in [{np.min(deviation_scores)}, {np.max(deviation_scores)}]")
-    #     return deviation_scores
 
     def get_derived_dataframe(self, ac_set: Union[FrozenSet[AC], None], cuboid: Tuple[str] = None,
                               reduction=None, return_complement=False, subset_indices=None):
@@ -338,19 +350,6 @@ class Squeeze:
 
     @staticmethod
     def __deviation_score(v, f):
-        n = 1
-        with np.errstate(divide='ignore'):
-            ret = n * (f - v) / (n * f + v)
-            # ret = np.log(np.maximum(v, 1e-10)) - np.log(np.maximum(f, 1e-10))
-            # ret = (2 * sigmoid(1 - v / f) - 1)
-            # k = np.log(np.maximum(v, 1e-100)) - np.log(np.maximum(f, 1e-100))
-            # ret = (1 - k) / (1 + k)
-        ret[np.isnan(ret)] = 0.
-        return ret
-
-    @staticmethod
-    def __deviation_score_with_variance(v, f):
-    # TODO
         n = 1
         with np.errstate(divide='ignore'):
             ret = n * (f - v) / (n * f + v)
