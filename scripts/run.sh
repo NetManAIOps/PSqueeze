@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 20:58:38 2019-10-15
+# * Last change   : 21:31:19 2019-10-17
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -60,7 +60,7 @@ case "$TASK" in
         run_evaluation "$DATASET" "$SETTING"
         ;;
     test)
-        run_algorithm B0 B_cuboid_layer_1_n_ele_1 "$NUM_WORKER"
+        run_algorithm B3 B_cuboid_layer_2_n_ele_2 "$NUM_WORKER"
         ;;
     *)
         help_info

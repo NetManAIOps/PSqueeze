@@ -13,6 +13,7 @@ from squeeze.anomaly_amount_fileter import KPIFilter
 from squeeze.squeeze_option import SqueezeOption
 from squeeze.clustering import cluster_factory
 from scipy.spatial.distance import cityblock, euclidean
+from scipy.special import factorial
 
 
 class Squeeze:
@@ -110,7 +111,12 @@ class Squeeze:
             self.filtered_indices = kpi_filter.filtered_indices
             # TODO: change for PSqueeze
             # cluster_list = self.one_dim_cluster(self.leaf_deviation_score[self.filtered_indices])
-            cluster_list = self.one_dim_cluster(self.leaf_deviation_score_with_variance[self.filtered_indices])
+            cluster_list = self.one_dim_cluster(
+                self.leaf_deviation_score_with_variance[self.filtered_indices],
+                self.leaf_deviation_weights_with_variance[self.filtered_indices]
+            )
+            print(cluster_list)
+            input()
             cluster_list = list(
                 [kpi_filter.inverse_map(_) for _ in cluster_list]
             )
@@ -297,6 +303,29 @@ class Squeeze:
         logger.debug(f"anomaly ratio ranges in [{np.min(deviation_scores)}, {np.max(deviation_scores)}]")
         return deviation_scores
 
+    @property
+    @lru_cache()
+    def leaf_deviation_weights_with_variance(self, bias=1, min=0) -> np.ndarray:
+        '''
+        Return: numpy.array([[W(-1), W(0), W(+1)],...])
+        '''
+        with np.errstate(divide='ignore', invalid='ignore'):
+            histogram_weights = self.__variance_weights(self._v, self._f, bias, min)
+            histogram_weights = np.apply_along_axis(func1d=lambda x: x/x[1], axis=1, arr=histogram_weights) # normalization with each line
+        # NOTE: checkpoint
+        # print("_v:", self._v[:4])
+        # print("_f:", self._f[:4])
+        # print("histogram_weights:", histogram_weights[:4])
+        # input("check point")
+        assert np.shape(histogram_weights)[0] == np.shape(self._v)[0] == np.shape(self._f)[0], \
+            f"bad histogram weights shape {np.shape(histogram_weights)}"
+        assert np.sum(np.isnan(histogram_weights)) == 0, \
+            f"there are nan in histogram weights {np.where(np.isnan(histogram_weights))}"
+        assert np.sum(~np.isfinite(histogram_weights)) == 0, \
+            f"there are infinity in histogram weights {np.where(~np.isfinite(histogram_weights))}"
+        return histogram_weights
+
+
     # NOTE: original leaf_deviation_score here
     @property
     @lru_cache()
@@ -359,3 +388,17 @@ class Squeeze:
             # ret = (1 - k) / (1 + k)
         ret[np.isnan(ret)] = 0.
         return ret
+
+    @staticmethod
+    def __variance_weights(v, f, bias, min):
+        with np.errstate(divide='ignore', invalid='ignore'):
+            _variance_v = np.array(((v-bias).clip(min=min), v, v+bias)).T
+            possion_prob = lambda x: (x[1]**x)*(np.math.e**(-x[1]))/factorial(x)
+            ret = np.apply_along_axis(func1d=possion_prob, axis=1, arr=_variance_v)
+        # NOTE: set strategy here
+        ret[:, 1][np.isnan(ret[:, 1])] = 1.
+        ret[:, 1][np.isinf(ret[:, 1])] = 1.
+        ret[np.isnan(ret)] = 0.
+        ret[np.isinf(ret)] = 0.
+        return ret
+

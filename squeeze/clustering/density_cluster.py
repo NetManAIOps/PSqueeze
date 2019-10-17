@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from squeeze.clustering.cluster import Cluster
 from squeeze.squeeze_option import SqueezeOption
 from kneed import KneeLocator
-from scipy.special import factorial
+# from scipy.special import factorial
 
 
 def smooth(arr, window_size):
@@ -81,21 +81,20 @@ class DensityBased1dCluster(Cluster):
 
         return _get_hist(width)
 
-    def _histogram_prob(self, array: np.ndarray):
+    def _histogram_prob(self, array: np.ndarray, weights: np.ndarray):
         '''
         get histogram with probability weight
         '''
         # NOTE: for PSqueeze
         assert len(array.shape) == 2, f"histogram_prob receives array with shape {array.shape}"
         def _get_hist(_width):
-            possion_prob = lambda x: (x[1]**x)*(np.math.e**(-x[1]))/factorial(x)
-            _weights = np.apply_along_axis(func1d=possion_prob, axis=1, arr=array)
             assert _width != 'auto', "numpy.histogram_bin_edges: weighted bin estimators are not currently available, but may be in the future"
             if _width == 'auto':
-                _edges = np.histogram_bin_edges(array, bins='auto', weights=_weights).tolist()
+                # NOTE: this branch are not currently available, unless NumPy update with histogram_bin_edges
+                _edges = np.histogram_bin_edges(array, bins='auto', weights=weights).tolist()
                 _edges = [_edges[0] - 0.1 * i for i in range(5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
             else: _edges = np.arange(array_range[0] - _width * 6, array_range[1] + _width * 5, _width)
-            h, edges = np.histogram(array, bins=_edges, weights=_weights, density=True)
+            h, edges = np.histogram(array, bins=_edges, weights=weights, density=True)
             # h /= 100.
             return h, np.convolve(edges, [1, 1], 'valid') / 2
         array_range = np.min(array), np.max(array)
@@ -144,9 +143,16 @@ class DensityBased1dCluster(Cluster):
             cluster_list.append(cluster_indices)
         return cluster_list
 
-    def __call__(self, array):
+    def __call__(self, array, weights=None):
         array = array.copy()
-        density_array, bins = self.density_estimation_func(array)
+        if type(weights) == type(None):
+            density_array, bins = self.density_estimation_func(array)
+        else:
+            # NOTE: checkpoint
+            # print("array: ", array)
+            # print("weights:", weights)
+            # input("check point")
+            density_array, bins = self.density_estimation_func(array, weights)
         # normal_idxes = self._find_normal_indices(array, density_array, bins)
         # density_array, bins = self.density_estimation_func(array[~normal_idxes])
         density_array = np.copy(density_array)
@@ -159,18 +165,18 @@ class DensityBased1dCluster(Cluster):
         smoothed_density_array = smooth(density_array, window_size)
         if self.option.debug:
             fig, ax1 = plt.subplots(figsize=(3.6, 1.8))
-            sns.distplot(array, bins='auto', label="density", hist=True, kde=False, norm_hist=True, ax=ax1)
+            sns.distplot(array.flatten(), bins='auto', label="density", hist=True, kde=False, norm_hist=True, ax=ax1)
             ax1.set_ylim([0, None])
             # ax2 = ax1.twinx()
             # ax2.plot(bins, smoothed_density_array, label="smoothed", linestyle="-.")
             # ax2.set_ylim([0, None])
         clusters = self._cluster(array, smoothed_density_array, bins, plot=self.option.debug)
         # NOTE: checkpoint
-        # print("density_array:", density_array)
-        # print("bins:", bins)
-        # print("smoothed_density_array:", smoothed_density_array)
-        # print("clusters:", clusters)
-        # input("check point")
+        print("density_array:", density_array)
+        print("bins:", bins)
+        print("smoothed_density_array:", smoothed_density_array)
+        print("clusters:", clusters)
+        input("check point")
         if self.option.debug:
             for cluster in clusters:
                 left_boundary, right_boundary = np.min(array[cluster]), np.max(array[cluster])
