@@ -115,18 +115,41 @@ class Squeeze:
                 self.leaf_deviation_score_with_variance[self.filtered_indices],
                 self.leaf_deviation_weights_with_variance[self.filtered_indices]
             )
-            print(cluster_list)
-            input()
             cluster_list = list(
-                [kpi_filter.inverse_map(_) for _ in cluster_list]
+                # [kpi_filter.inverse_map(_) for _ in cluster_list]
+                [np.array([
+                        kpi_filter.inverse_map((_/3).astype(int)),
+                        _%3
+                    ]).T
+                for _ in cluster_list] # NOTE: for PSqueeze, each cluster is np.ndarray([[index, bias]...])
             )
+
+            def choose_from_2darray(source: np.ndarray, x_index_list, y_index_list):
+                return source[x_index_list, y_index_list]
+
             cluster_list = list(
-                [list(
-                    filter(lambda x: np.min(self.leaf_deviation_score[_]) <= self.leaf_deviation_score[x] <= np.max(
-                        self.leaf_deviation_score[_]), np.arange(len(self._f)))
-                )
+                # [list(
+                #     filter(lambda x: np.min(self.leaf_deviation_score[_]) <= self.leaf_deviation_score[x] <= np.max(
+                #         self.leaf_deviation_score[_]), np.arange(len(self._f)))
+                # )
+                #     for _ in cluster_list]
+
+                # NOTE: for PSqueeze
+                [np.array(list(
+                    filter(lambda x: 
+                        np.min(choose_from_2darray(self.leaf_deviation_score_with_variance, _[:, 0], _[:, 1]))
+                            <= self.leaf_deviation_score_with_variance[int(x/3), x%3] <=
+                        np.max(choose_from_2darray(self.leaf_deviation_score_with_variance, _[:, 0], _[:, 1])),
+                    np.arange(len(self.leaf_deviation_score_with_variance.flatten())))
+                ))
                     for _ in cluster_list]
             )
+
+            # NOTE: for PSqueeze: each cluster is np.ndarray([[index, bias]...])
+            cluster_list = list([
+                np.array([(_/3).astype(int), _%3]).T
+            for _ in cluster_list])
+
             self.cluster_list = cluster_list
         else:
             self.filtered_indices = np.ones(len(self._v), dtype=bool)
@@ -305,13 +328,11 @@ class Squeeze:
 
     @property
     @lru_cache()
-    def leaf_deviation_weights_with_variance(self, bias=1, min=0) -> np.ndarray:
+    def leaf_deviation_weights_with_variance(self, bias=1) -> np.ndarray:
         '''
         Return: numpy.array([[W(-1), W(0), W(+1)],...])
         '''
-        with np.errstate(divide='ignore', invalid='ignore'):
-            histogram_weights = self.__variance_weights(self._v, self._f, bias, min)
-            histogram_weights = np.apply_along_axis(func1d=lambda x: x/x[1], axis=1, arr=histogram_weights) # normalization with each line
+        histogram_weights = self.__variance_weights(self._v, self._f, bias, min=1)
         # NOTE: checkpoint
         # print("_v:", self._v[:4])
         # print("_f:", self._f[:4])
@@ -390,12 +411,14 @@ class Squeeze:
         return ret
 
     @staticmethod
-    def __variance_weights(v, f, bias, min):
+    def __variance_weights(v, f, bias, min=1):
         with np.errstate(divide='ignore', invalid='ignore'):
-            _variance_v = np.array(((v-bias).clip(min=min), v, v+bias)).T
+            _v = (v+0.5).astype(int).clip(min=min) # round to integer
+            _variance_v = np.array((_v-bias, _v, _v+bias)).T
             possion_prob = lambda x: (x[1]**x)*(np.math.e**(-x[1]))/factorial(x)
             ret = np.apply_along_axis(func1d=possion_prob, axis=1, arr=_variance_v)
-        # NOTE: set strategy here
+            ret = np.apply_along_axis(func1d=lambda x: x/x[1], axis=1, arr=ret) # normalization on each line
+        # NOTE: error strategy here
         ret[:, 1][np.isnan(ret[:, 1])] = 1.
         ret[:, 1][np.isinf(ret[:, 1])] = 1.
         ret[np.isnan(ret)] = 0.

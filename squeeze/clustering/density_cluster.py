@@ -102,6 +102,7 @@ class DensityBased1dCluster(Cluster):
         return _get_hist(width)
 
     def _cluster(self, array, density_array: np.ndarray, bins, plot=False):
+        # NOTE: array is flattened
         def significant_greater(a, b):
             return (a - b) / (a + b) > 0.1
 
@@ -149,8 +150,8 @@ class DensityBased1dCluster(Cluster):
             density_array, bins = self.density_estimation_func(array)
         else:
             # NOTE: checkpoint
-            # print("array: ", array)
-            # print("weights:", weights)
+            # print("array: ", array[:4])
+            # print("weights:", weights[:4])
             # input("check point")
             density_array, bins = self.density_estimation_func(array, weights)
         # normal_idxes = self._find_normal_indices(array, density_array, bins)
@@ -170,13 +171,14 @@ class DensityBased1dCluster(Cluster):
             # ax2 = ax1.twinx()
             # ax2.plot(bins, smoothed_density_array, label="smoothed", linestyle="-.")
             # ax2.set_ylim([0, None])
+        array = array.flatten()
         clusters = self._cluster(array, smoothed_density_array, bins, plot=self.option.debug)
         # NOTE: checkpoint
-        print("density_array:", density_array)
-        print("bins:", bins)
-        print("smoothed_density_array:", smoothed_density_array)
-        print("clusters:", clusters)
-        input("check point")
+        # print("density_array:", density_array)
+        # print("bins:", bins)
+        # print("smoothed_density_array:", smoothed_density_array)
+        # print("clusters:", clusters)
+        # input("check point")
         if self.option.debug:
             for cluster in clusters:
                 left_boundary, right_boundary = np.min(array[cluster]), np.max(array[cluster])
