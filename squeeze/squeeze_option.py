@@ -1,6 +1,7 @@
 class SqueezeOption:
     def __init__(self, **kwargs):
         self.debug = False
+        self.psqueeze = True
         self.fig_save_path = "/outputs/fig_{suffix}.pdf"
 
         # Filter

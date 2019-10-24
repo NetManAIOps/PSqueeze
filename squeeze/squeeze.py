@@ -94,13 +94,31 @@ class Squeeze:
     @property
     @lru_cache()
     def normal_indices(self):
-        abnormal = np.sort(np.concatenate(self.cluster_list))
-        idx = np.argsort(np.abs(self.leaf_deviation_score[abnormal]))
-        abnormal = abnormal[idx]
-        normal = np.where(np.abs(self.leaf_deviation_score) < self.leaf_deviation_score[abnormal[0]])[0]
-        # normal = np.setdiff1d(np.arange(len(self.derived_data)), abnormal, assume_unique=True)
-        # return np.intersect1d(normal, self.filtered_indices, assume_unique=True)
-        return normal
+        if self.option.psqueeze:
+            abnormal = np.concatenate(self.cluster_list)
+            idx = np.argsort(
+                np.abs(
+                    self.choose_from_2darray(
+                        self.leaf_deviation_score_with_variance,
+                        abnormal[:, 0],
+                        abnormal[:, 1]
+                    )
+                )
+            )
+            abnormal = abnormal[idx]
+            upper_bound = self.leaf_deviation_score_with_variance[abnormal[0][0]][abnormal[0][1]]
+            normal = np.where(np.max(np.abs(self.leaf_deviation_score_with_variance), axis=1) < upper_bound)[0]
+            assert len(normal) + np.unique(abnormal[:, 0]).shape[0] == self.leaf_deviation_score_with_variance.shape[0], \
+                f"wrong relation counts with normal and abnormal indices"
+            return normal
+        else:
+            abnormal = np.sort(np.concatenate(self.cluster_list))
+            idx = np.argsort(np.abs(self.leaf_deviation_score[abnormal]))
+            abnormal = abnormal[idx]
+            normal = np.where(np.abs(self.leaf_deviation_score) < self.leaf_deviation_score[abnormal[0]])[0]
+            # normal = np.setdiff1d(np.arange(len(self.derived_data)), abnormal, assume_unique=True)
+            # return np.intersect1d(normal, self.filtered_indices, assume_unique=True)
+            return normal
 
     def run(self):
         if self.__finished:
@@ -109,52 +127,50 @@ class Squeeze:
         if self.option.enable_filter:
             kpi_filter = KPIFilter(self._v, self._f)
             self.filtered_indices = kpi_filter.filtered_indices
-            # TODO: change for PSqueeze
-            # cluster_list = self.one_dim_cluster(self.leaf_deviation_score[self.filtered_indices])
-            cluster_list = self.one_dim_cluster(
-                self.leaf_deviation_score_with_variance[self.filtered_indices],
-                self.leaf_deviation_weights_with_variance[self.filtered_indices]
-            )
-            cluster_list = list(
-                # [kpi_filter.inverse_map(_) for _ in cluster_list]
-                [np.array([
-                        kpi_filter.inverse_map((_/3).astype(int)),
-                        _%3
-                    ]).T
-                for _ in cluster_list] # NOTE: for PSqueeze, each cluster is np.ndarray([[index, bias]...])
-            )
-
-            def choose_from_2darray(source: np.ndarray, x_index_list, y_index_list):
-                return source[x_index_list, y_index_list]
-
-            cluster_list = list(
-                # [list(
-                #     filter(lambda x: np.min(self.leaf_deviation_score[_]) <= self.leaf_deviation_score[x] <= np.max(
-                #         self.leaf_deviation_score[_]), np.arange(len(self._f)))
-                # )
-                #     for _ in cluster_list]
-
-                # NOTE: for PSqueeze
-                [np.array(list(
-                    filter(lambda x: 
-                        np.min(choose_from_2darray(self.leaf_deviation_score_with_variance, _[:, 0], _[:, 1]))
-                            <= self.leaf_deviation_score_with_variance[int(x/3), x%3] <=
-                        np.max(choose_from_2darray(self.leaf_deviation_score_with_variance, _[:, 0], _[:, 1])),
-                    np.arange(len(self.leaf_deviation_score_with_variance.flatten())))
-                ))
-                    for _ in cluster_list]
-            )
-
-            # NOTE: for PSqueeze: each cluster is np.ndarray([[index, bias]...])
-            cluster_list = list([
-                np.array([(_/3).astype(int), _%3]).T
-            for _ in cluster_list])
+            if self.option.psqueeze:
+                # for PSqueeze
+                cluster_list = self.one_dim_cluster(
+                    self.leaf_deviation_score_with_variance[self.filtered_indices],
+                    self.leaf_deviation_weights_with_variance[self.filtered_indices]
+                )
+                cluster_list = list(
+                    [np.array([
+                            kpi_filter.inverse_map((_/3).astype(int)),
+                            _%3
+                        ]).T
+                    for _ in cluster_list] # NOTE: for PSqueeze, each cluster is np.ndarray([[index, bias]...])
+                )
+                cluster_list = list(
+                    [np.array(list(
+                        filter(lambda x: 
+                            np.min(self.choose_from_2darray(self.leaf_deviation_score_with_variance, _[:, 0], _[:, 1]))
+                                <= self.leaf_deviation_score_with_variance[int(x/3), x%3] <=
+                            np.max(self.choose_from_2darray(self.leaf_deviation_score_with_variance, _[:, 0], _[:, 1])),
+                        np.arange(len(self.leaf_deviation_score_with_variance.flatten())))
+                    ))
+                        for _ in cluster_list]
+                )
+                # NOTE: for PSqueeze: each cluster is np.ndarray([[index, bias]...])
+                cluster_list = list([
+                    np.array([(_/3).astype(int), _%3]).T
+                for _ in cluster_list])
+            else:
+                cluster_list = self.one_dim_cluster(self.leaf_deviation_score[self.filtered_indices])
+                cluster_list = list([kpi_filter.inverse_map(_) for _ in cluster_list])
+                cluster_list = list(
+                    [list(
+                        filter(lambda x: np.min(self.leaf_deviation_score[_]) <= self.leaf_deviation_score[x] <= np.max(
+                            self.leaf_deviation_score[_]), np.arange(len(self._f)))
+                    )
+                        for _ in cluster_list]
+                )
 
             self.cluster_list = cluster_list
         else:
             self.filtered_indices = np.ones(len(self._v), dtype=bool)
             self.cluster_list = self.one_dim_cluster(self.leaf_deviation_score)
 
+        input("before locate root cause")
         self.locate_root_cause()
         self.__finished = True
         self._root_cause = self._root_cause
@@ -166,11 +182,14 @@ class Squeeze:
         :param indices: anomaly leaf nodes' indices
         :return: root causes and their score
         """
+        indices_original = indices
+        if type(indices) == np.ndarray: # for PSqueeze
+            indices = np.unique(indices[:, 0]).tolist()
         # mu = params.get("mu")
         # sigma = params.get("sigma")
         data_cuboid_indexed = self.get_indexed_data(cuboid)
         logger.debug(f"current cuboid: {cuboid}")
-
+        
         abnormal_cuboid_ac_arr = self.get_cuboid_ac_array(cuboid)[indices]
         elements, num_elements = np.unique(abnormal_cuboid_ac_arr, return_counts=True)
 
@@ -192,6 +211,7 @@ class Squeeze:
         logger.debug(f"elements: {';'.join(str(_) for _ in elements)}")
 
         def _root_cause_score(partition: int) -> float:
+            # NOTE: change for PSqueeze?
             dis_f = cityblock
             data_p, data_n = self.get_derived_dataframe(
                 frozenset(elements[:partition]), cuboid=cuboid,
@@ -203,18 +223,18 @@ class Squeeze:
             # dn = self.__deviation_score(data_n['real'].values, data_n['predict'].values) if len(data_n) else []
             # log_ll = np.mean(norm.pdf(dp, loc=mu, scale=sigma)) \
             #          + np.mean(norm.pdf(dn, loc=0, scale=self.option.normal_deviation_std))
-            _abnormal_descent_score = np.sum(num_elements[:partition]) / np.sum(num_ele_descents[:partition])
-            _normal_descent_score = 1 - np.sum(num_elements[partition:] / np.sum(num_ele_descents[partition:]))
-            _ds = _normal_descent_score * _abnormal_descent_score
-            succinct = partition + len(cuboid) * len(cuboid)
+            # _abnormal_descent_score = np.sum(num_elements[:partition]) / np.sum(num_ele_descents[:partition])
+            # _normal_descent_score = 1 - np.sum(num_elements[partition:] / np.sum(num_ele_descents[partition:]))
+            # _ds = _normal_descent_score * _abnormal_descent_score
+            # succinct = partition + len(cuboid) * len(cuboid)
             _pv, _pf = np.sum(data_p.real.values), np.sum(data_p.predict.values)
-            _lp = len(data_p)
-            _v1, _v2 = data_p.real.values, data_n.real.values
-            _v = np.concatenate([_v1, _v2])
+            # _lp = len(data_p)
+            _v1, _v2 = data_p.real.values, data_n.real.values # TODO: modify for PSqueeze if needed
+            # _v = np.concatenate([_v1, _v2])
             _f1, _f2 = data_p.predict.values, data_n.predict.values
-            _f = np.concatenate([_f1, _f2])
+            # _f = np.concatenate([_f1, _f2])
             _a1, _a2 = data_p.predict.values * (_pv / _pf), data_n.predict.values
-            _a = np.concatenate([_a1, _a2])
+            # _a = np.concatenate([_a1, _a2])
             divide = lambda x, y: x / y if y > 0 else (0 if x == 0 else float('inf'))
             _ps = 1 - (divide(dis_f(_v1, _a1), len(_v1)) + divide(dis_f(_v2, _f2), len(_v2))) \
                   / (divide(dis_f(_v1, _f1), len(_v1)) + divide(dis_f(_v2, _f2), len(_v2)))
@@ -222,7 +242,7 @@ class Squeeze:
                 f"partition:{partition} "
                 # f"log_ll:{log_ll} "
                 # f"impact: {impact_score} "
-                f"succinct: {succinct} "
+                # f"succinct: {succinct} "
                 f"ps: {_ps}"
             )
             # return _p * self.option.score_weight / (-succinct)
@@ -245,43 +265,70 @@ class Squeeze:
         score = rc_scores[0]
         rc = elements[:partitions[0].item()]
         logger.debug(f"cuboid {cuboid} gives root cause {AC.batch_to_string(rc)} with score {score}")
+        input()
         return rc.tolist(), score
 
     def _locate_in_cluster(self, indices: np.ndarray):
         """
-        :param indices:  indices of leaf nodes in this cluster
+        :param indices:  indices of leaf nodes in this cluster (list or np.ndarray)
         :return: None
         """
-        mu = np.mean(self.leaf_deviation_score[indices])
-        sigma = np.maximum(np.std(self.leaf_deviation_score[indices]), 1e-4)
-        logger.debug(f"locate in cluster: {mu}(+-{sigma})")
-        max_cuboid_layer = len(self.attribute_names)
-        ret_lists = []
-        for cuboid_layer in np.arange(max_cuboid_layer) + 1:
-            layer_ret_lists = list(map(
-                lambda x, _i=indices, _mu=mu, _sigma=sigma: self._locate_in_cuboid(x, indices=_i, mu=_mu, sigma=_sigma),
-                combinations(self.attribute_names, cuboid_layer)
-            ))
-            ret_lists.extend([
-                {
-                    'rc': x[0], 'score': x[1], 'n_ele': len(x[0]), 'layer': cuboid_layer,
-                    'rank': x[1] * self.option.score_weight - len(x[0]) * cuboid_layer
-                } for x in layer_ret_lists
-            ])
-            if len(list(filter(lambda x: x['score'] > self.option.ps_upper_bound, ret_lists))):
-                break
-        ret_lists = list(sorted(
-            ret_lists,
-            key=lambda x: x['rank'],
-            reverse=True)
-        )
-        if ret_lists:
-            ret = ret_lists[0]['rc']
-            logger.debug(
-                f"find root cause: {AC.batch_to_string(ret)}, rank: {ret_lists[0]['rank']}, score: {ret_lists[0]['score']}")
-            self._root_cause.append(frozenset(ret))
+        if self.option.psqueeze:
+            score_samples = self.choose_from_2darray(
+                self.leaf_deviation_score_with_variance,
+                indices[:, 0],
+                indices[:, 1]
+            )
+            mu = np.mean(score_samples)
+            sigma = np.maximum(np.std(score_samples), 1e-4)
+            logger.debug(f"locate in cluster: {mu}(+-{sigma})")
+            max_cuboid_layer = len(self.attribute_names)
+            ret_lists = []
+            for cuboid_layer in np.arange(max_cuboid_layer) + 1:
+                layer_ret_lists = list(map(
+                    lambda x, _i=indices, _mu=mu, _sigma=sigma: self._locate_in_cuboid(x, indices=_i, mu=_mu, sigma=_sigma),
+                    combinations(self.attribute_names, cuboid_layer)
+                ))
+                ret_lists.extend([
+                    {
+                        'rc': x[0], 'score': x[1], 'n_ele': len(x[0]), 'layer': cuboid_layer,
+                        'rank': x[1] * self.option.score_weight - len(x[0]) * cuboid_layer
+                    } for x in layer_ret_lists
+                ])
+                if len(list(filter(lambda x: x['score'] > self.option.ps_upper_bound, ret_lists))):
+                    break
+            input()
         else:
-            logger.info("failed to find root cause")
+            mu = np.mean(self.leaf_deviation_score[indices])
+            sigma = np.maximum(np.std(self.leaf_deviation_score[indices]), 1e-4)
+            logger.debug(f"locate in cluster: {mu}(+-{sigma})")
+            max_cuboid_layer = len(self.attribute_names)
+            ret_lists = []
+            for cuboid_layer in np.arange(max_cuboid_layer) + 1:
+                layer_ret_lists = list(map(
+                    lambda x, _i=indices, _mu=mu, _sigma=sigma: self._locate_in_cuboid(x, indices=_i, mu=_mu, sigma=_sigma),
+                    combinations(self.attribute_names, cuboid_layer)
+                ))
+                ret_lists.extend([
+                    {
+                        'rc': x[0], 'score': x[1], 'n_ele': len(x[0]), 'layer': cuboid_layer,
+                        'rank': x[1] * self.option.score_weight - len(x[0]) * cuboid_layer
+                    } for x in layer_ret_lists
+                ])
+                if len(list(filter(lambda x: x['score'] > self.option.ps_upper_bound, ret_lists))):
+                    break
+            ret_lists = list(sorted(
+                ret_lists,
+                key=lambda x: x['rank'],
+                reverse=True)
+            )
+            if ret_lists:
+                ret = ret_lists[0]['rc']
+                logger.debug(
+                    f"find root cause: {AC.batch_to_string(ret)}, rank: {ret_lists[0]['rank']}, score: {ret_lists[0]['score']}")
+                self._root_cause.append(frozenset(ret))
+            else:
+                logger.info("failed to find root cause")
 
     def locate_root_cause(self):
         if not self.cluster_list:
@@ -296,6 +343,7 @@ class Squeeze:
             #                            (np.log(sum(len(_) for _ in self.cluster_list)) + np.sum([np.log(len(_)) for _ in self.attribute_values]) - np.log(len(self.cluster_list)) - np.log(len(self.leaf_deviation_score))) \
             #                            / np.log(np.mean([len(_) for _ in self.attribute_values])) * 10
             logger.debug(f"auto score weight: {self.option.score_weight}")
+            input("locate root cause")
         for indices in self.cluster_list:
             self._locate_in_cluster(indices)
 
@@ -425,3 +473,6 @@ class Squeeze:
         ret[np.isinf(ret)] = 0.
         return ret
 
+    @staticmethod
+    def choose_from_2darray(source: np.ndarray, x_index_list, y_index_list):
+        return source[x_index_list, y_index_list]
