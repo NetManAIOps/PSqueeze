@@ -108,8 +108,6 @@ class Squeeze:
             abnormal = abnormal[idx]
             upper_bound = self.leaf_deviation_score_with_variance[abnormal[0][0]][abnormal[0][1]]
             normal = np.where(np.max(np.abs(self.leaf_deviation_score_with_variance), axis=1) < upper_bound)[0]
-            assert len(normal) + np.unique(abnormal[:, 0]).shape[0] == self.leaf_deviation_score_with_variance.shape[0], \
-                f"wrong relation counts with normal and abnormal indices"
             return normal
         else:
             abnormal = np.sort(np.concatenate(self.cluster_list))
@@ -170,7 +168,6 @@ class Squeeze:
             self.filtered_indices = np.ones(len(self._v), dtype=bool)
             self.cluster_list = self.one_dim_cluster(self.leaf_deviation_score)
 
-        input("before locate root cause")
         self.locate_root_cause()
         self.__finished = True
         self._root_cause = self._root_cause
@@ -265,7 +262,6 @@ class Squeeze:
         score = rc_scores[0]
         rc = elements[:partitions[0].item()]
         logger.debug(f"cuboid {cuboid} gives root cause {AC.batch_to_string(rc)} with score {score}")
-        input()
         return rc.tolist(), score
 
     def _locate_in_cluster(self, indices: np.ndarray):
@@ -297,7 +293,6 @@ class Squeeze:
                 ])
                 if len(list(filter(lambda x: x['score'] > self.option.ps_upper_bound, ret_lists))):
                     break
-            input()
         else:
             mu = np.mean(self.leaf_deviation_score[indices])
             sigma = np.maximum(np.std(self.leaf_deviation_score[indices]), 1e-4)
@@ -343,7 +338,6 @@ class Squeeze:
             #                            (np.log(sum(len(_) for _ in self.cluster_list)) + np.sum([np.log(len(_)) for _ in self.attribute_values]) - np.log(len(self.cluster_list)) - np.log(len(self.leaf_deviation_score))) \
             #                            / np.log(np.mean([len(_) for _ in self.attribute_values])) * 10
             logger.debug(f"auto score weight: {self.option.score_weight}")
-            input("locate root cause")
         for indices in self.cluster_list:
             self._locate_in_cluster(indices)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 19:13:26 2019-10-22
+# * Last change   : 21:17:50 2019-10-28
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -46,12 +46,28 @@ help_info()
     echo -e "USAGE: run.sh {TASK} {DATASET} {SETTING} [NUM_WORKER]"
 }
 
+run_B_all()
+{
+    NUM_WORKER=$1
+    DATASET_LIST="B3\nB4\nB5\nB6\nB7\nD"
+    CUBOID_X_LIST="1\n2\n3"
+    CUBOID_Y_LIST="1\n2\n3"
+    while read -r dataset; do
+        while read -r cuboid_x; do
+            while read -r cuboid_y; do
+                echo -e "\trun for $dataset B_cuboid_layer_${cuboid_x}_n_ele_${cuboid_y} now..."
+                run_algorithm "$dataset" "B_cuboid_layer_${cuboid_x}_n_ele_${cuboid_y}" "$NUM_WORKER" \
+                    > /dev/null
+            done < <(echo -e $CUBOID_Y_LIST)
+        done < <(echo -e $CUBOID_X_LIST)
+    done < <(echo -e $DATASET_LIST)
+}
+
 TASK=$1
 DATASET=$2
 SETTING=$3
 NUM_WORKER=${4:-1}
 
-#TODO
 case "$TASK" in
     run)
         run_algorithm "$DATASET" "$SETTING" "$NUM_WORKER"
@@ -60,7 +76,10 @@ case "$TASK" in
         run_evaluation "$DATASET" "$SETTING"
         ;;
     test)
-        run_algorithm B0 B_cuboid_layer_1_n_ele_1 "$NUM_WORKER"
+        run_algorithm B3 B_cuboid_layer_1_n_ele_1 "$NUM_WORKER"
+        ;;
+    B)
+        run_B_all "$NUM_WORKER"
         ;;
     *)
         help_info
