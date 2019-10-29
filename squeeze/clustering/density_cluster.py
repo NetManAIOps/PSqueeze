@@ -95,7 +95,7 @@ class DensityBased1dCluster(Cluster):
                 _edges = [_edges[0] - 0.1 * i for i in range(5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
             else: _edges = np.arange(array_range[0] - _width * 6, array_range[1] + _width * 5, _width)
             h, edges = np.histogram(array, bins=_edges, weights=weights, density=True)
-            # h /= 100.
+            h /= 100.
             return h, np.convolve(edges, [1, 1], 'valid') / 2
         array_range = np.min(array), np.max(array)
         width = self.option.histogram_bar_width

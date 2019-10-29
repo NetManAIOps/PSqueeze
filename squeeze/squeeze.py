@@ -184,6 +184,10 @@ class Squeeze:
             indices = np.unique(indices[:, 0]).tolist()
         # mu = params.get("mu")
         # sigma = params.get("sigma")
+
+        # print(indices)
+        # print(len(indices))
+        # input()
         data_cuboid_indexed = self.get_indexed_data(cuboid)
         logger.debug(f"current cuboid: {cuboid}")
         
@@ -312,18 +316,19 @@ class Squeeze:
                 ])
                 if len(list(filter(lambda x: x['score'] > self.option.ps_upper_bound, ret_lists))):
                     break
-            ret_lists = list(sorted(
-                ret_lists,
-                key=lambda x: x['rank'],
-                reverse=True)
-            )
-            if ret_lists:
-                ret = ret_lists[0]['rc']
-                logger.debug(
-                    f"find root cause: {AC.batch_to_string(ret)}, rank: {ret_lists[0]['rank']}, score: {ret_lists[0]['score']}")
-                self._root_cause.append(frozenset(ret))
-            else:
-                logger.info("failed to find root cause")
+
+        ret_lists = list(sorted(
+            ret_lists,
+            key=lambda x: x['rank'],
+            reverse=True)
+        )
+        if ret_lists:
+            ret = ret_lists[0]['rc']
+            logger.debug(
+                f"find root cause: {AC.batch_to_string(ret)}, rank: {ret_lists[0]['rank']}, score: {ret_lists[0]['score']}")
+            self._root_cause.append(frozenset(ret))
+        else:
+            logger.info("failed to find root cause")
 
     def locate_root_cause(self):
         if not self.cluster_list:

@@ -22,6 +22,8 @@ B4
 A
 D
 data/
+result/
+output/
 .DS_Store
 .venv/
 .*

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 21:51:47 2019-10-28
+# * Last change   : 20:46:33 2019-10-29
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -24,6 +24,7 @@ run_algorithm()
     DATASET=$1
     SETTING=$2
     NUM_WORKER=$3
+    [ ! -d "${RESULT_DIR}/${DATASET}" ] && mkdir "${RESULT_DIR}/${DATASET}"
     ./run_algorithm.py \
         --name ${SETTING} \
         --input-path ${DATA_DIR}/${DATASET} \
@@ -35,10 +36,10 @@ run_evaluation()
 {
     DATASET=$1
     SETTING=$2
-    ./run_evaluation.py \ 
-        -i ${DATA_DIR}/${DATASET}/${SETTING}/injection_info.csv \ 
-        -p ${RESULT_DIR}/${DATASET}/${SETTING}/${SETTING}.json \
-        -c ${DATA_DIR}/${DATASET}/config.json
+    ./run_evaluation.py \
+        --injection-info ${DATA_DIR}/${DATASET}/${SETTING}/injection_info.csv \
+        --predict ${RESULT_DIR}/${DATASET}/${SETTING}/${SETTING}.json \
+        --config ${DATA_DIR}/${DATASET}/config.json
 }
 
 help_info()
@@ -49,7 +50,7 @@ help_info()
 run_B_all()
 {
     NUM_WORKER=$1
-    DATASET_LIST="B3\nB4\nB5\nB6\nB7\nD"
+    DATASET_LIST="B3\nB4\nB5\nB6\nB7"
     CUBOID_X_LIST="1\n2\n3"
     CUBOID_Y_LIST="1\n2\n3"
     while read -r dataset; do
@@ -90,7 +91,7 @@ run_A_all()
 TASK=$1
 DATASET=$2
 SETTING=$3
-NUM_WORKER=${4:-1}
+NUM_WORKER=${4:-20}
 
 case "$TASK" in
     run)
