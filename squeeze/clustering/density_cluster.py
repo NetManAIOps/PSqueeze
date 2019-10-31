@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 from squeeze.clustering.cluster import Cluster
 from squeeze.squeeze_option import SqueezeOption
 from kneed import KneeLocator
+from histogram_bin_edges import freedman_diaconis_bins
 # from scipy.special import factorial
 
 
@@ -88,10 +89,9 @@ class DensityBased1dCluster(Cluster):
         # NOTE: for PSqueeze
         assert len(array.shape) == 2, f"histogram_prob receives array with shape {array.shape}"
         def _get_hist(_width):
-            assert _width != 'auto', "numpy.histogram_bin_edges: weighted bin estimators are not currently available, but may be in the future"
             if _width == 'auto':
-                # NOTE: this branch are not currently available, unless NumPy update with histogram_bin_edges
-                _edges = np.histogram_bin_edges(array, bins='auto', weights=weights).tolist()
+                _bins = freedman_diaconis_bins(array.flatten(), weights.flatten())
+                _edges = np.histogram_bin_edges(array, bins=_bins, weights=weights).tolist()
                 _edges = [_edges[0] - 0.1 * i for i in range(5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
             else: _edges = np.arange(array_range[0] - _width * 6, array_range[1] + _width * 5, _width)
             h, edges = np.histogram(array, bins=_edges, weights=weights, density=True)

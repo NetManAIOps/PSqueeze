@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 20:46:33 2019-10-29
+# * Last change   : 21:34:27 2019-10-31
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -91,7 +91,7 @@ run_A_all()
 TASK=$1
 DATASET=$2
 SETTING=$3
-NUM_WORKER=${4:-20}
+NUM_WORKER=${4:-10}
 
 case "$TASK" in
     run)
