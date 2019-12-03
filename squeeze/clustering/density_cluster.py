@@ -10,6 +10,8 @@ from squeeze.squeeze_option import SqueezeOption
 from kneed import KneeLocator
 from histogram_bin_edges import freedman_diaconis_bins
 # from scipy.special import factorial
+import json
+import sys
 
 
 def smooth(arr, window_size):
@@ -41,7 +43,19 @@ class DensityBased1dCluster(Cluster):
         assert len(array.shape) == 1, f"histogram receives array with shape {array.shape}"
         def _get_hist(_width):
             if _width == 'auto':
-                _edges = np.histogram_bin_edges(array, 'auto').tolist()
+                # TODO: try freedman_diaconis_bins
+                # _bins = freedman_diaconis_bins(array)
+                _edges = np.histogram_bin_edges(array, bins='auto').tolist()
+                # _edges_np = np.histogram_bin_edges(array, bins='auto').tolist()
+                # if _edges_np != _edges:
+                #     print(array)
+                #     print(_edges)
+                #     print(_edges_np)
+                #     print(len(array))
+                #     print(len(_edges))
+                #     print(len(_edges_np))
+                #     open("tmp.json", "a").write(json.dumps(array.tolist()))
+                #     sys.exit(0)
                 # NOTE: bug?
                 # _edges = [_edges[0] - 0.1 * i for i in range(-5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
                 _edges = [_edges[0] - 0.1 * i for i in range(5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
@@ -90,8 +104,9 @@ class DensityBased1dCluster(Cluster):
         assert len(array.shape) == 2, f"histogram_prob receives array with shape {array.shape}"
         def _get_hist(_width):
             if _width == 'auto':
-                _bins = freedman_diaconis_bins(array.flatten(), weights.flatten())
-                _edges = np.histogram_bin_edges(array, bins=_bins, weights=weights).tolist()
+                # _bins = freedman_diaconis_bins(array, weights)
+                # logger.debug(f"bins: {_bins}")
+                _edges = np.histogram_bin_edges(array[:,1], bins='auto', range=array_range).tolist()
                 _edges = [_edges[0] - 0.1 * i for i in range(5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
             else: _edges = np.arange(array_range[0] - _width * 6, array_range[1] + _width * 5, _width)
             h, edges = np.histogram(array, bins=_edges, weights=weights, density=True)
@@ -171,7 +186,7 @@ class DensityBased1dCluster(Cluster):
             # ax2 = ax1.twinx()
             # ax2.plot(bins, smoothed_density_array, label="smoothed", linestyle="-.")
             # ax2.set_ylim([0, None])
-        array = array.flatten()
+        array = array.ravel()
         clusters = self._cluster(array, smoothed_density_array, bins, plot=self.option.debug)
         # NOTE: checkpoint
         # print("density_array:", density_array)

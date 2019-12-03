@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 21:34:27 2019-10-31
+# * Last change   : 20:55:12 2019-12-03
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -50,7 +50,7 @@ help_info()
 run_B_all()
 {
     NUM_WORKER=$1
-    DATASET_LIST="B3\nB4\nB5\nB6\nB7"
+    DATASET_LIST="B0\nB1\nB2\nB3\nB4"
     CUBOID_X_LIST="1\n2\n3"
     CUBOID_Y_LIST="1\n2\n3"
     while read -r dataset; do
@@ -91,7 +91,7 @@ run_A_all()
 TASK=$1
 DATASET=$2
 SETTING=$3
-NUM_WORKER=${4:-10}
+NUM_WORKER=${4:-20}
 
 case "$TASK" in
     run)
@@ -100,8 +100,11 @@ case "$TASK" in
     eval)
         run_evaluation "$DATASET" "$SETTING"
         ;;
-    test)
-        run_algorithm B3 B_cuboid_layer_1_n_ele_1 "$NUM_WORKER"
+    test_run)
+        run_algorithm B0 B_cuboid_layer_1_n_ele_2 "$NUM_WORKER"
+        ;;
+    test_eval)
+        run_evaluation B0 B_cuboid_layer_1_n_ele_2
         ;;
     B)
         run_B_all "$NUM_WORKER"

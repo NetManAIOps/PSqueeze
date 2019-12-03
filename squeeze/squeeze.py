@@ -41,7 +41,6 @@ class Squeeze:
         self.attribute_names = list(sorted(set(self.derived_data.columns) - {'real', 'predict'}))
         logger.debug(f"available attributes: {self.attribute_names}")
 
-        # NOTE: derived_data match to data_list one by one
         self.derived_data.sort_values(by=self.attribute_names, inplace=True)
         self.data_list = list(map(lambda x: x.sort_values(by=self.attribute_names), self.data_list))
 
@@ -179,26 +178,41 @@ class Squeeze:
         :param indices: anomaly leaf nodes' indices
         :return: root causes and their score
         """
-        indices_original = indices
+        variance_map = {}
+        def array2map(x):
+            if x[0] in variance_map: variance_map[x[0]].append(x[1])
+            else: variance_map[x[0]] = [x[1]]
+        
         if type(indices) == np.ndarray: # for PSqueeze
+            np.apply_along_axis(func1d=array2map, arr=indices, axis=1)
             indices = np.unique(indices[:, 0]).tolist()
-        # mu = params.get("mu")
-        # sigma = params.get("sigma")
+        assert len(self.data_list) == 1
 
-        # print(indices)
-        # print(len(indices))
-        # input()
         data_cuboid_indexed = self.get_indexed_data(cuboid)
         logger.debug(f"current cuboid: {cuboid}")
-        
+
         abnormal_cuboid_ac_arr = self.get_cuboid_ac_array(cuboid)[indices]
-        elements, num_elements = np.unique(abnormal_cuboid_ac_arr, return_counts=True)
+
+        if variance_map: # for PSqueeze
+            elements_count = {}
+            for i in range(len(indices)):
+                idx = indices[i]
+                ele = abnormal_cuboid_ac_arr[i]
+                weight = self.leaf_deviation_weights_with_variance[idx][variance_map[idx]].max()
+                if ele in elements_count: elements_count[ele] += weight
+                else: elements_count[ele] = weight
+            elements = np.array(list(elements_count.keys()))
+            num_elements = np.array(list(elements_count.values()))
+            del elements_count, variance_map
+        else:
+            elements, num_elements = np.unique(abnormal_cuboid_ac_arr, return_counts=True)
 
         num_ele_descents = np.asarray(list(
             np.count_nonzero(
                 _.index_dataframe(data_cuboid_indexed),
             ) for _ in elements
         ))
+
         # sort reversely by descent score
         descent_score = num_elements / np.maximum(num_ele_descents, 1e-4)
         idx = np.argsort(descent_score)[::-1]
@@ -316,7 +330,6 @@ class Squeeze:
                 ])
                 if len(list(filter(lambda x: x['score'] > self.option.ps_upper_bound, ret_lists))):
                     break
-
         ret_lists = list(sorted(
             ret_lists,
             key=lambda x: x['rank'],
@@ -335,14 +348,15 @@ class Squeeze:
             logger.info("We do not have abnormal points")
             return
         if self.option.score_weight == 'auto':
+            num_sample = len(self._f)
+            if self.option.psqueeze: # for PSqueeze
+                num_sample = num_sample * 3
             self.option.score_weight = - np.log(
                 len(self.cluster_list) *
-                sum(len(_) for _ in self.cluster_list) / len(self._f)) / np.log(
+                sum(len(_) for _ in self.cluster_list) / num_sample) / np.log(
                 sum(len(_) for _ in self.attribute_values)) * sum(len(_) for _ in self.attribute_values)
-            # self.option.score_weight = len(self.cluster_list) * \
-            #                            (np.log(sum(len(_) for _ in self.cluster_list)) + np.sum([np.log(len(_)) for _ in self.attribute_values]) - np.log(len(self.cluster_list)) - np.log(len(self.leaf_deviation_score))) \
-            #                            / np.log(np.mean([len(_) for _ in self.attribute_values])) * 10
             logger.debug(f"auto score weight: {self.option.score_weight}")
+            # assert self.option.score_weight > 0 NOTE
         for indices in self.cluster_list:
             self._locate_in_cluster(indices)
 
@@ -352,18 +366,13 @@ class Squeeze:
         '''
         Return: numpy.array([[D(-1), D(0), D(+1)],...])
         '''
-        # NOTE: for PSqueeze
+        # for PSqueeze
         with np.errstate(divide='ignore', invalid='ignore'):
             _minus = self.__deviation_score((self._v-bias).clip(min=min), self._f)
             _origin = self.__deviation_score(self._v, self._f)
             _plus = self.__deviation_score(self._v+bias, self._f)
             deviation_scores = np.array((_minus, _origin, _plus)).T
             del _minus, _origin, _plus
-        # NOTE: checkpoint
-        # print("_v:", self._v[:4])
-        # print("_f:", self._f[:4])
-        # print("deviation_scores:", deviation_scores[:4])
-        # input("check point")
         assert np.shape(deviation_scores)[0] == np.shape(self._v)[0] == np.shape(self._f)[0], \
             f"bad deviation score shape {np.shape(deviation_scores)}"
         assert np.sum(np.isnan(deviation_scores)) == 0, \
@@ -371,6 +380,7 @@ class Squeeze:
         assert np.sum(~np.isfinite(deviation_scores)) == 0, \
             f"there are infinity in deviation score {np.where(~np.isfinite(deviation_scores))}"
         logger.debug(f"anomaly ratio ranges in [{np.min(deviation_scores)}, {np.max(deviation_scores)}]")
+        logger.debug(f"anomaly ratio ranges in [{np.min(deviation_scores[:,1])}, {np.max(deviation_scores[:,1])}]")
         return deviation_scores
 
     @property
@@ -380,11 +390,6 @@ class Squeeze:
         Return: numpy.array([[W(-1), W(0), W(+1)],...])
         '''
         histogram_weights = self.__variance_weights(self._v, self._f, bias, min=1)
-        # NOTE: checkpoint
-        # print("_v:", self._v[:4])
-        # print("_f:", self._f[:4])
-        # print("histogram_weights:", histogram_weights[:4])
-        # input("check point")
         assert np.shape(histogram_weights)[0] == np.shape(self._v)[0] == np.shape(self._f)[0], \
             f"bad histogram weights shape {np.shape(histogram_weights)}"
         assert np.sum(np.isnan(histogram_weights)) == 0, \
@@ -394,7 +399,6 @@ class Squeeze:
         return histogram_weights
 
 
-    # NOTE: original leaf_deviation_score here
     @property
     @lru_cache()
     def leaf_deviation_score(self):
@@ -459,12 +463,14 @@ class Squeeze:
 
     @staticmethod
     def __variance_weights(v, f, bias, min=1):
+        return np.array([[0,1,0] for i in range(v.shape[0])])
         with np.errstate(divide='ignore', invalid='ignore'):
             _v = (v+0.5).astype(int).clip(min=min) # round to integer
             _variance_v = np.array((_v-bias, _v, _v+bias)).T
             possion_prob = lambda x: (x[1]**x)*(np.math.e**(-x[1]))/factorial(x)
             ret = np.apply_along_axis(func1d=possion_prob, axis=1, arr=_variance_v)
-            ret = np.apply_along_axis(func1d=lambda x: x/x[1], axis=1, arr=ret) # normalization on each line
+            # ret = np.apply_along_axis(func1d=lambda x: x/x[1], axis=1, arr=ret) # normalization on each line
+            ret = np.apply_along_axis(func1d=lambda x: x/np.sum(x), axis=1, arr=ret) # normalization on each line
         # NOTE: error strategy here
         ret[:, 1][np.isnan(ret[:, 1])] = 1.
         ret[:, 1][np.isinf(ret[:, 1])] = 1.
