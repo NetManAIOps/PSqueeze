@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 20:55:12 2019-12-03
+# * Last change   : 20:09:23 2019-12-05
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -9,6 +9,7 @@
 
 echo -e "PSqueeze script: run experiment..."
 
+WORKING_DIR=`pwd`
 SCRIPT_DIR=`dirname "$0"`
 SCRIPT_DIR=`cd $SCRIPT_DIR; pwd`
 MAIN_DIR=`cd ${SCRIPT_DIR}/../; pwd`
@@ -67,6 +68,36 @@ run_B_all()
     done < <(echo -e $DATASET_LIST)
 }
 
+eval_B_line()
+{
+    DATASET=$1
+    CUBOID_X=$2
+    CUBOID_Y=$3
+    SETTING=B_cuboid_layer_${CUBOID_X}_n_ele_${CUBOID_Y}
+
+    LINE="$DATASET""\t""$SETTING"
+    VALUE=`run_evaluation $DATASET $SETTING | tail -1`
+    [ ! "$?" -eq "0" ] && exit "$?"
+    LINE="$LINE""\t""${VALUE// /\\t}"
+    echo -e "$LINE"
+}
+
+eval_B_all()
+{
+    TO_PATH="$1"
+    DATASET_LIST="B0\nB1\nB2\nB3\nB4"
+    CUBOID_X_LIST="1\n2\n3"
+    CUBOID_Y_LIST="1\n2\n3"
+    while read -r dataset; do
+        while read -r cuboid_x; do
+            while read -r cuboid_y; do
+                eval_B_line "$dataset" "$cuboid_x" "$cuboid_y" \
+                    >> "$TO_PATH"
+            done < <(echo -e $CUBOID_Y_LIST)
+        done < <(echo -e $CUBOID_X_LIST)
+    done < <(echo -e $DATASET_LIST)
+}
+
 run_A_all()
 {
     NUM_WORKER=$1
@@ -88,6 +119,65 @@ run_A_all()
     done < <(echo -e $CUBOID_X_LIST)
 }
 
+export_csv()
+{
+    GREEN='\033[32m'
+    RED='\033[0;31m'
+    NC='\033[0m'
+
+    SAVE_PATH=${1:-result_summary.csv}
+    if [[ ! "$SAVE_PATH" = /* ]]; then
+        SAVE_PATH=${WORKING_DIR}/${SAVE_PATH}
+    fi 
+
+    if [ -d "$SAVE_PATH" ]; then
+        echo -e "Path to a directory already exists, script aborted."
+        exit 1
+    fi
+
+    echo -e "Which part do you want to export?\n"
+    echo -e "${GREEN}0${NC} B evaluation"
+    echo -e ""
+    echo -en "Enter the index to continue:"
+    read INDEX
+
+    if [ "$INDEX" !=  "0" ]; then
+        echo -e "Aborted."
+        exit 1
+    fi
+
+    if [ -f "$SAVE_PATH" ]; then
+        echo -e "${RED}Caution: file ${SAVE_PATH} already exists\n${NC}"
+        echo -en "Enter (y/n) to continue:"
+        read INPUT
+        if [ "$INPUT" = "y" ]; then
+            rm "$SAVE_PATH"
+        else
+            echo -e "Aborted."
+            exit 1
+        fi
+    fi
+
+    touch "$SAVE_PATH" > /dev/null 2>&1
+    if [ ! "$?" -eq "0" ]; then
+        echo -e "Failed to create file."
+        exit 1
+    fi
+
+    case "$INDEX" in
+        0)
+            echo -e "Export B evaluation..."
+            eval_B_all "$SAVE_PATH"
+            ;;
+        *)
+            echo -e "Should have been aborted earlier."
+            exit 2
+            ;;
+    esac
+
+    echo -e "Export successfully."
+}
+
 TASK=$1
 DATASET=$2
 SETTING=$3
@@ -101,10 +191,10 @@ case "$TASK" in
         run_evaluation "$DATASET" "$SETTING"
         ;;
     test_run)
-        run_algorithm B0 B_cuboid_layer_1_n_ele_2 "$NUM_WORKER"
+        run_algorithm B4 B_cuboid_layer_3_n_ele_1 "$NUM_WORKER"
         ;;
     test_eval)
-        run_evaluation B0 B_cuboid_layer_1_n_ele_2
+        run_evaluation B4 B_cuboid_layer_3_n_ele_1
         ;;
     B)
         run_B_all "$NUM_WORKER"
@@ -112,7 +202,11 @@ case "$TASK" in
     A)
         run_A_all "$NUM_WORKER"
         ;;
+    export)
+        export_csv "$2"
+        ;;
     *)
         help_info
         ;;
 esac
+

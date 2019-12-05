@@ -11,7 +11,7 @@ import numpy as np
 @click.option("--injection-info", '-i', help='injection_info.csv file')
 @click.option("--predict", '-p', help='output json file')
 @click.option("--config", '-c', help='config json file')
-@click.option("--output-path", '-o', help="output path", default="./output.csv")
+@click.option("--output-path", '-o', help="output path", default="")
 def main(*args, **kwargs):
     evaluate(*args, **kwargs)
 
@@ -81,7 +81,7 @@ def evaluate(injection_info, predict, config, output_path, verbose=True, return_
     )
     if verbose:
         print(df_total)
-    if output_path is not None:
+    if not output_path == "":
         df_total.to_csv(output_path, index=False)
     if verbose:
         print(total_fscore, total_precision, total_recall)

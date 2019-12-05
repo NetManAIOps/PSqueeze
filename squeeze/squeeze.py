@@ -198,7 +198,7 @@ class Squeeze:
             for i in range(len(indices)):
                 idx = indices[i]
                 ele = abnormal_cuboid_ac_arr[i]
-                weight = self.leaf_deviation_weights_with_variance[idx][variance_map[idx]].max()
+                weight = self.leaf_deviation_weights_with_variance[idx][variance_map[idx]].max() # NOTE: max or sum?
                 if ele in elements_count: elements_count[ele] += weight
                 else: elements_count[ele] = weight
             elements = np.array(list(elements_count.keys()))
@@ -463,7 +463,7 @@ class Squeeze:
 
     @staticmethod
     def __variance_weights(v, f, bias, min=1):
-        return np.array([[0,1,0] for i in range(v.shape[0])])
+        # return np.array([[0,1,0] for i in range(v.shape[0])])
         with np.errstate(divide='ignore', invalid='ignore'):
             _v = (v+0.5).astype(int).clip(min=min) # round to integer
             _variance_v = np.array((_v-bias, _v, _v+bias)).T
