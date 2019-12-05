@@ -57,7 +57,7 @@ def main(name, input_path, output_path, num_workers, **kwargs):
     logger.info(f"save to {output_path}")
     injection_info = pd.read_csv(input_path / name / 'injection_info.csv', engine='c')
     timestamps = sorted(injection_info['timestamp'])
-    # timestamps = ['1451225100'] # NOTE: for debug
+    # timestamps = ['1451225100', '1451211600', '1451205000'] # NOTE: for debug
     if not dervied:
         results = Parallel(n_jobs=num_workers, backend="multiprocessing", verbose=100)(
             delayed(executor)(file_path, output_path.parent, **kwargs)

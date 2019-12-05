@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 20:09:23 2019-12-05
+# * Last change   : 20:29:50 2019-12-05
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -14,7 +14,7 @@ SCRIPT_DIR=`dirname "$0"`
 SCRIPT_DIR=`cd $SCRIPT_DIR; pwd`
 MAIN_DIR=`cd ${SCRIPT_DIR}/../; pwd`
 DATA_DIR=`cd ${MAIN_DIR}/data/; pwd`
-RESULT_DIR=${MAIN_DIR}/result/
+RESULT_DIR=${MAIN_DIR}/debug/
 
 [ ! -d "$RESULT_DIR" ] && mkdir "$RESULT_DIR"
 RESULT_DIR=`cd ${RESULT_DIR}; pwd`

@@ -203,7 +203,7 @@ class Squeeze:
                 else: elements_count[ele] = weight
             elements = np.array(list(elements_count.keys()))
             num_elements = np.array(list(elements_count.values()))
-            del elements_count, variance_map
+            del elements_count
         else:
             elements, num_elements = np.unique(abnormal_cuboid_ac_arr, return_counts=True)
 
@@ -226,7 +226,6 @@ class Squeeze:
         logger.debug(f"elements: {';'.join(str(_) for _ in elements)}")
 
         def _root_cause_score(partition: int) -> float:
-            # NOTE: change for PSqueeze?
             dis_f = cityblock
             data_p, data_n = self.get_derived_dataframe(
                 frozenset(elements[:partition]), cuboid=cuboid,
@@ -242,14 +241,21 @@ class Squeeze:
             # _normal_descent_score = 1 - np.sum(num_elements[partition:] / np.sum(num_ele_descents[partition:]))
             # _ds = _normal_descent_score * _abnormal_descent_score
             # succinct = partition + len(cuboid) * len(cuboid)
-            _pv, _pf = np.sum(data_p.real.values), np.sum(data_p.predict.values)
-            # _lp = len(data_p)
-            _v1, _v2 = data_p.real.values, data_n.real.values # TODO: modify for PSqueeze if needed
-            # _v = np.concatenate([_v1, _v2])
+            data_p['delta'] = [0 for i in range(len(data_p))]
+            data_n['delta'] = [0 for i in range(len(data_n))]
+
+            for idx, val in variance_map.items():
+                delta = sum(val) - len(val)
+                if delta == 0: continue
+                if idx in data_n.index:
+                    data_n['delta'][idx] = delta
+                elif idx in data_p.index:
+                    data_p['delta'][idx] = delta
+
+            _v1, _v2 = data_p.real.values+data_p.delta.values, data_n.real.values+data_n.delta.values
+            _pv, _pf = np.sum(_v1), np.sum(data_p.predict.values)
             _f1, _f2 = data_p.predict.values, data_n.predict.values
-            # _f = np.concatenate([_f1, _f2])
             _a1, _a2 = data_p.predict.values * (_pv / _pf), data_n.predict.values
-            # _a = np.concatenate([_a1, _a2])
             divide = lambda x, y: x / y if y > 0 else (0 if x == 0 else float('inf'))
             _ps = 1 - (divide(dis_f(_v1, _a1), len(_v1)) + divide(dis_f(_v2, _f2), len(_v2))) \
                   / (divide(dis_f(_v1, _f1), len(_v1)) + divide(dis_f(_v2, _f2), len(_v2)))
