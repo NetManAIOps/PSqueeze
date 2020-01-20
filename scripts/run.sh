@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 20:29:50 2019-12-05
+# * Last change   : 12:24:49 2020-01-20
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -14,7 +14,7 @@ SCRIPT_DIR=`dirname "$0"`
 SCRIPT_DIR=`cd $SCRIPT_DIR; pwd`
 MAIN_DIR=`cd ${SCRIPT_DIR}/../; pwd`
 DATA_DIR=`cd ${MAIN_DIR}/data/; pwd`
-RESULT_DIR=${MAIN_DIR}/debug/
+RESULT_DIR=${MAIN_DIR}/result/
 
 [ ! -d "$RESULT_DIR" ] && mkdir "$RESULT_DIR"
 RESULT_DIR=`cd ${RESULT_DIR}; pwd`
@@ -63,6 +63,8 @@ run_B_all()
                 echo -e "\trun for $dataset $setting now..."
                 run_algorithm "$dataset" "$setting" "$NUM_WORKER" \
                     >${RESULT_DIR}/${dataset}/${setting}/runtime.log 2>&1
+                echo -en "\t\t"
+                run_evaluation "$dataset" "$setting" | tail -1
             done < <(echo -e $CUBOID_Y_LIST)
         done < <(echo -e $CUBOID_X_LIST)
     done < <(echo -e $DATASET_LIST)
@@ -191,10 +193,10 @@ case "$TASK" in
         run_evaluation "$DATASET" "$SETTING"
         ;;
     test_run)
-        run_algorithm B4 B_cuboid_layer_3_n_ele_1 "$NUM_WORKER"
+        run_algorithm B4 B_cuboid_layer_1_n_ele_3 "$NUM_WORKER"
         ;;
     test_eval)
-        run_evaluation B4 B_cuboid_layer_3_n_ele_1
+        run_evaluation B4 B_cuboid_layer_1_n_ele_3
         ;;
     B)
         run_B_all "$NUM_WORKER"

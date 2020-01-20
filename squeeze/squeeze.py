@@ -198,7 +198,8 @@ class Squeeze:
             for i in range(len(indices)):
                 idx = indices[i]
                 ele = abnormal_cuboid_ac_arr[i]
-                weight = self.leaf_deviation_weights_with_variance[idx][variance_map[idx]].max() # NOTE: max or sum?
+                # weight = self.leaf_deviation_weights_with_variance[idx][variance_map[idx]].max() # NOTE: max or sum?
+                weight = np.sum(self.leaf_deviation_weights_with_variance[idx][variance_map[idx]])
                 if ele in elements_count: elements_count[ele] += weight
                 else: elements_count[ele] = weight
             elements = np.array(list(elements_count.keys()))
@@ -241,18 +242,18 @@ class Squeeze:
             # _normal_descent_score = 1 - np.sum(num_elements[partition:] / np.sum(num_ele_descents[partition:]))
             # _ds = _normal_descent_score * _abnormal_descent_score
             # succinct = partition + len(cuboid) * len(cuboid)
-            data_p['delta'] = [0 for i in range(len(data_p))]
-            data_n['delta'] = [0 for i in range(len(data_n))]
 
-            for idx, val in variance_map.items():
-                delta = sum(val) - len(val)
-                if delta == 0: continue
-                if idx in data_n.index:
-                    data_n['delta'][idx] = delta
-                elif idx in data_p.index:
-                    data_p['delta'][idx] = delta
+            # data_p['delta'] = [0 for i in range(len(data_p))]
+            # data_n['delta'] = [0 for i in range(len(data_n))]
+            # for idx, val in variance_map.items():
+            #     delta = sum(val) - len(val)
+            #     if delta == 0: continue
+            #     if idx in data_n.index:
+            #         data_n['delta'][idx] = delta
+            #     elif idx in data_p.index:
+            #         data_p['delta'][idx] = delta
 
-            _v1, _v2 = data_p.real.values+data_p.delta.values, data_n.real.values+data_n.delta.values
+            _v1, _v2 = data_p.real.values, data_n.real.values
             _pv, _pf = np.sum(_v1), np.sum(data_p.predict.values)
             _f1, _f2 = data_p.predict.values, data_n.predict.values
             _a1, _a2 = data_p.predict.values * (_pv / _pf), data_n.predict.values
@@ -294,6 +295,16 @@ class Squeeze:
         :return: None
         """
         if self.option.psqueeze:
+            non_variance = indices[np.where(indices[:, 1] == 1)[0]]
+            # too many variance data
+            if non_variance.shape[0] * self.option.non_var_split_ratio < indices.shape[0]:
+                logger.info(f"too many variance data, {non_variance.shape[0]} in {indices.shape[0]}")
+                if non_variance.size == 0:
+                    logger.info("no non-variance cluster")
+                    return 
+                indices = non_variance
+            del non_variance
+
             score_samples = self.choose_from_2darray(
                 self.leaf_deviation_score_with_variance,
                 indices[:, 0],
@@ -302,6 +313,25 @@ class Squeeze:
             mu = np.mean(score_samples)
             sigma = np.maximum(np.std(score_samples), 1e-4)
             logger.debug(f"locate in cluster: {mu}(+-{sigma})")
+            logger.debug(f"cluster indices: {indices.shape}")
+            # logger.debug(f"cluster indices: {indices}")
+
+            # def detail_print(idx):
+            #     print(f"data at line {idx}:")
+            #     print(f"\t_v: {self._v[idx]}, _f: {self._f[idx]}")
+            #     print("\tdeviation score:", end="\t")
+            #     print(self.leaf_deviation_score_with_variance[idx][0], end="\t")
+            #     print(self.leaf_deviation_score_with_variance[idx][1], end="\t")
+            #     print(self.leaf_deviation_score_with_variance[idx][2])
+            #     print("\tdeviation weights:", end="\t")
+            #     print(self.leaf_deviation_weights_with_variance[idx][0], end="\t")
+            #     print(self.leaf_deviation_weights_with_variance[idx][1], end="\t")
+            #     print(self.leaf_deviation_weights_with_variance[idx][2])
+            # detail_print(36)
+            # detail_print(39)
+            # detail_print(43)
+            # input()
+
             max_cuboid_layer = len(self.attribute_names)
             ret_lists = []
             for cuboid_layer in np.arange(max_cuboid_layer) + 1:
@@ -321,6 +351,8 @@ class Squeeze:
             mu = np.mean(self.leaf_deviation_score[indices])
             sigma = np.maximum(np.std(self.leaf_deviation_score[indices]), 1e-4)
             logger.debug(f"locate in cluster: {mu}(+-{sigma})")
+            logger.debug(f"cluster indices: {len(indices)}")
+            # logger.debug(f"cluster indices: {indices}")
             max_cuboid_layer = len(self.attribute_names)
             ret_lists = []
             for cuboid_layer in np.arange(max_cuboid_layer) + 1:
@@ -469,7 +501,7 @@ class Squeeze:
 
     @staticmethod
     def __variance_weights(v, f, bias, min=1):
-        # return np.array([[0,1,0] for i in range(v.shape[0])])
+        # return np.array([[0.0,1.0,0.0] for i in range(v.shape[0])]) # test
         with np.errstate(divide='ignore', invalid='ignore'):
             _v = (v+0.5).astype(int).clip(min=min) # round to integer
             _variance_v = np.array((_v-bias, _v, _v+bias)).T

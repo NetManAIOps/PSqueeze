@@ -84,7 +84,8 @@ def evaluate(injection_info, predict, config, output_path, verbose=True, return_
     if not output_path == "":
         df_total.to_csv(output_path, index=False)
     if verbose:
-        print(total_fscore, total_precision, total_recall)
+        # print(total_fscore, total_precision, total_recall)
+        print(f"{total_fscore:.4f} {total_precision:.4f} {total_recall:.4f}")
     if return_detail:
         return df
     return df_total

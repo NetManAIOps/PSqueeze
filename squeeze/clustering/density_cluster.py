@@ -46,16 +46,9 @@ class DensityBased1dCluster(Cluster):
                 # TODO: try freedman_diaconis_bins
                 # _bins = freedman_diaconis_bins(array)
                 _edges = np.histogram_bin_edges(array, bins='auto').tolist()
-                # _edges_np = np.histogram_bin_edges(array, bins='auto').tolist()
-                # if _edges_np != _edges:
-                #     print(array)
-                #     print(_edges)
-                #     print(_edges_np)
-                #     print(len(array))
-                #     print(len(_edges))
-                #     print(len(_edges_np))
-                #     open("tmp.json", "a").write(json.dumps(array.tolist()))
-                #     sys.exit(0)
+                # if (len(_edges) > 100):
+                #     _edges = np.histogram_bin_edges(array, bins=100).tolist()
+
                 # NOTE: bug?
                 # _edges = [_edges[0] - 0.1 * i for i in range(-5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
                 _edges = [_edges[0] - 0.1 * i for i in range(5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
@@ -107,6 +100,8 @@ class DensityBased1dCluster(Cluster):
                 # _bins = freedman_diaconis_bins(array, weights)
                 # logger.debug(f"bins: {_bins}")
                 _edges = np.histogram_bin_edges(array[:,1], bins='auto', range=array_range).tolist()
+                # if (len(_edges) > 20):
+                #     _edges = np.histogram_bin_edges(array[:,1], bins=20).tolist()
                 _edges = [_edges[0] - 0.1 * i for i in range(5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
             else: _edges = np.arange(array_range[0] - _width * 6, array_range[1] + _width * 5, _width)
             h, edges = np.histogram(array, bins=_edges, weights=weights, density=True)
@@ -129,6 +124,10 @@ class DensityBased1dCluster(Cluster):
             density_array, comparator=lambda x, y: x <= y,
             axis=0, order=order, mode='wrap')[0]
         extreme_max_indices = list(filter(lambda x: density_array[x] > 0, extreme_max_indices))
+        # print(array)
+        # print(density_array)
+        # print(len(extreme_max_indices))
+        # print(len(extreme_min_indices))
         if plot:
             for idx in extreme_max_indices:
                 plt.axvline(bins[idx], linestyle="-", color="red", label="relmax", alpha=0.5, linewidth=0.8)

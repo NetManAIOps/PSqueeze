@@ -1,8 +1,11 @@
 class SqueezeOption:
     def __init__(self, **kwargs):
         self.debug = False
-        self.psqueeze = True
         self.fig_save_path = "/outputs/fig_{suffix}.pdf"
+
+        # PSqueeze
+        self.psqueeze = True
+        self.non_var_split_ratio = 4
 
         # Filter
         self.enable_filter = True
