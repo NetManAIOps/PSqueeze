@@ -342,7 +342,7 @@ class Squeeze:
                 ret_lists.extend([
                     {
                         'rc': x[0], 'score': x[1], 'n_ele': len(x[0]), 'layer': cuboid_layer,
-                        'rank': x[1] * self.option.score_weight - len(x[0]) * cuboid_layer
+                        'rank': x[1] * self.option.score_weight - len(x[0]) * cuboid_layer ** 2
                     } for x in layer_ret_lists
                 ])
                 if len(list(filter(lambda x: x['score'] > self.option.ps_upper_bound, ret_lists))):
