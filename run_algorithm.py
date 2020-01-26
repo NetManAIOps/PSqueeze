@@ -57,7 +57,7 @@ def main(name, input_path, output_path, num_workers, **kwargs):
     logger.info(f"save to {output_path}")
     injection_info = pd.read_csv(input_path / name / 'injection_info.csv', engine='c')
     timestamps = sorted(injection_info['timestamp'])
-    # timestamps = ['1451225100', '1451211600', '1451205000'] # NOTE: for debug
+    # timestamps = ['1535842800'] # NOTE: for debug
     if not dervied:
         results = Parallel(n_jobs=num_workers, backend="multiprocessing", verbose=100)(
             delayed(executor)(file_path, output_path.parent, **kwargs)
@@ -99,6 +99,7 @@ def executor(file_path: Path, output_path: Path, **kwargs) -> Dict:
         debug=debug,
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
         density_estimation_method="histogram_prob", 
+        max_bins=100, # NOTE here
         **kwargs,
     )
     squeezeOption = SqueezeOption(

@@ -100,8 +100,8 @@ class DensityBased1dCluster(Cluster):
                 # _bins = freedman_diaconis_bins(array, weights)
                 # logger.debug(f"bins: {_bins}")
                 _edges = np.histogram_bin_edges(array[:,1], bins='auto', range=array_range).tolist()
-                # if (len(_edges) > 20):
-                #     _edges = np.histogram_bin_edges(array[:,1], bins=20).tolist()
+                if self.option.max_bins and len(_edges) > self.option.max_bins:
+                    _edges = np.histogram_bin_edges(array[:,1], bins=self.option.max_bins).tolist()
                 _edges = [_edges[0] - 0.1 * i for i in range(5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
             else: _edges = np.arange(array_range[0] - _width * 6, array_range[1] + _width * 5, _width)
             h, edges = np.histogram(array, bins=_edges, weights=weights, density=True)
@@ -163,10 +163,6 @@ class DensityBased1dCluster(Cluster):
         if type(weights) == type(None):
             density_array, bins = self.density_estimation_func(array)
         else:
-            # NOTE: checkpoint
-            # print("array: ", array[:4])
-            # print("weights:", weights[:4])
-            # input("check point")
             density_array, bins = self.density_estimation_func(array, weights)
         # normal_idxes = self._find_normal_indices(array, density_array, bins)
         # density_array, bins = self.density_estimation_func(array[~normal_idxes])
