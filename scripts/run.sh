@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 13:13:49 2020-01-26
+# * Last change   : 12:59:27 2020-01-28
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -129,7 +129,7 @@ eval_A_line()
     Y=$2
     Z=$3
     SETTING=new_dataset_A_week_${X}_n_elements_${Y}_layers_${Z}
-    [ ! -d "${DATA_DIR}/A/${SETTING}" ] && exit 0
+    [ ! -d "${DATA_DIR}/A/${SETTING}" ] && return 0
 
     LINE="A""\t""$SETTING"
     VALUE=`run_evaluation A $SETTING 2>/dev/null | tail -1`
