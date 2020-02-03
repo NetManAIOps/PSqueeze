@@ -43,49 +43,19 @@ class DensityBased1dCluster(Cluster):
         assert len(array.shape) == 1, f"histogram receives array with shape {array.shape}"
         def _get_hist(_width):
             if _width == 'auto':
-                # TODO: try freedman_diaconis_bins
-                # _bins = freedman_diaconis_bins(array)
                 _edges = np.histogram_bin_edges(array, bins='auto').tolist()
-                # if (len(_edges) > 100):
-                #     _edges = np.histogram_bin_edges(array, bins=100).tolist()
+                if self.option.max_bins and len(_edges) > self.option.max_bins:
+                    _edges = np.histogram_bin_edges(array, bins=self.option.max_bins).tolist()
 
-                # NOTE: bug?
-                # _edges = [_edges[0] - 0.1 * i for i in range(-5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
                 _edges = [_edges[0] - 0.1 * i for i in range(5, 0, -1)] + _edges + [_edges[-1] + 0.1 * i for i in range(1, 6)]
             else:
                 _edges = np.arange(array_range[0] - _width * 6, array_range[1] + _width * 5, _width)
             h, edges = np.histogram(array, bins=_edges, density=True)
             h /= 100.
-            # conv_kernel = self.option.density_smooth_conv_kernel
-            # h = np.convolve(h, conv_kernel, 'full') / np.sum(conv_kernel)
             return h, np.convolve(edges, [1, 1], 'valid') / 2
-
-        # def _get_score(_clusters):
-        #     if len(_clusters) <= 0:
-        #         return float('-inf')
-        #     _mu = np.concatenate([np.repeat(np.mean(array[idx]), np.size(idx)) for idx in _clusters])
-        #     _sigma = np.concatenate([np.repeat(np.std(array[idx]), np.size(idx)) for idx in _clusters]) + 1e-8
-        #     # _arrays = np.concatenate([array[idx] for idx in _clusters])
-        #     # _scores = np.sum(- np.log(_sigma) - np.square((_arrays - _mu) / _sigma))
-        #     _scores = np.max(_sigma)
-        #     return _scores
 
         array_range = np.min(array), np.max(array)
         width = self.option.histogram_bar_width
-        # if width == 'auto':
-        #     x_list = [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10]
-        #     hists = [_get_hist(_width) for _width in x_list]
-        #     # y_list = [len(argrelextrema(
-        #     #     _get_hist(_width=_width)[0], comparator=np.greater_equal,
-        #     #     axis=0, order=self.option.cluster_smooth_window_size, mode='clip')[0]) for _width in x_list]
-        #     clusters_list = [self._cluster(array, density_array, bins) for density_array, bins in hists]
-        #     y_list = [_get_score(clusters) for clusters in clusters_list]
-        #     split = KneeLocator(x_list, y_list, curve='concave', direction='increasing').knee
-        #     if split is None:
-        #         split = x_list[0]
-        #     # elbow = x_list[np.argmax(y_list)]
-        #     logger.debug(f"{x_list}, {y_list}, {split}")
-        #     width = split
 
         return _get_hist(width)
 
@@ -97,8 +67,6 @@ class DensityBased1dCluster(Cluster):
         assert len(array.shape) == 2, f"histogram_prob receives array with shape {array.shape}"
         def _get_hist(_width):
             if _width == 'auto':
-                # _bins = freedman_diaconis_bins(array, weights)
-                # logger.debug(f"bins: {_bins}")
                 _edges = np.histogram_bin_edges(array[:,1], bins='auto', range=array_range).tolist()
                 if self.option.max_bins and len(_edges) > self.option.max_bins:
                     _edges = np.histogram_bin_edges(array[:,1], bins=self.option.max_bins).tolist()
@@ -124,10 +92,6 @@ class DensityBased1dCluster(Cluster):
             density_array, comparator=lambda x, y: x <= y,
             axis=0, order=order, mode='wrap')[0]
         extreme_max_indices = list(filter(lambda x: density_array[x] > 0, extreme_max_indices))
-        # print(array)
-        # print(density_array)
-        # print(len(extreme_max_indices))
-        # print(len(extreme_min_indices))
         if plot:
             for idx in extreme_max_indices:
                 plt.axvline(bins[idx], linestyle="-", color="red", label="relmax", alpha=0.5, linewidth=0.8)
@@ -183,12 +147,6 @@ class DensityBased1dCluster(Cluster):
             # ax2.set_ylim([0, None])
         array = array.ravel()
         clusters = self._cluster(array, smoothed_density_array, bins, plot=self.option.debug)
-        # NOTE: checkpoint
-        # print("density_array:", density_array)
-        # print("bins:", bins)
-        # print("smoothed_density_array:", smoothed_density_array)
-        # print("clusters:", clusters)
-        # input("check point")
         if self.option.debug:
             for cluster in clusters:
                 left_boundary, right_boundary = np.min(array[cluster]), np.max(array[cluster])
