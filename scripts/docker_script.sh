@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : docker relevant script
-# * Last change   : 13:31:12 2020-02-05
+# * Last change   : 13:36:07 2020-02-05
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -20,7 +20,7 @@ run_image()
         --name "$name" \
         --mount type=bind,source=$MAIN_DIR,target=/psqueeze \
         --workdir /psqueeze \
-        "psqueeze-env:0.1" \
+        "psqueeze-env:0.2" \
         bash
 }
 
