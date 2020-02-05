@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 12:59:27 2020-01-28
+# * Last change   : 11:20:14 2020-02-05
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -25,12 +25,13 @@ run_algorithm()
     DATASET=$1
     SETTING=$2
     NUM_WORKER=$3
+    DERIVED=$4
     [ ! -d "${RESULT_DIR}/${DATASET}" ] && mkdir "${RESULT_DIR}/${DATASET}"
     ./run_algorithm.py \
         --name ${SETTING} \
         --input-path ${DATA_DIR}/${DATASET} \
         --output-path ${RESULT_DIR}/${DATASET}/${SETTING}/ \
-        --num-workers ${NUM_WORKER}
+        --num-workers ${NUM_WORKER} ${DERIVED}
 }
 
 run_evaluation()
@@ -154,6 +155,38 @@ eval_A_all()
     done < <(echo -e $X_LIST)
 }
 
+inspect_all()
+{
+    NUM_WORKER="$1"
+    DATASET_LIST="B0\nB1\nB2\nB3\nB4"
+    CUBOID_X_LIST="1\n2\n3"
+    CUBOID_Y_LIST="1\n2\n3"
+    while read -r dataset; do
+        while read -r cuboid_x; do
+            while read -r cuboid_y; do
+                echo -e "\tinspect $dataset $cuboid_x $cuboid_y now..."
+                ./data_inspection.py "$dataset" "$cuboid_x" "$cuboid_y" "$NUM_WORKER" \
+                    >/dev/null 2>&1
+            done < <(echo -e $CUBOID_Y_LIST)
+        done < <(echo -e $CUBOID_X_LIST)
+    done < <(echo -e $DATASET_LIST)
+
+    DATASET_LIST="A_week_12\nA_week_34\nA_week_56\nA_week_78"
+    CUBOID_X_LIST="1\n2\n3\n4\n5"
+    CUBOID_Y_LIST="1\n2\n3\n4"
+    while read -r dataset; do
+        while read -r cuboid_x; do
+            while read -r cuboid_y; do
+                setting=new_dataset_${dataset}_n_elements_${cuboid_x}_layers_${cuboid_y}
+                [ ! -d "${DATA_DIR}/A/${setting}" ] && continue
+                echo -e "\tinspect $dataset $cuboid_x $cuboid_y now..."
+                ./data_inspection.py "$dataset" "$cuboid_x" "$cuboid_y" "$NUM_WORKER" \
+                    >/dev/null 2>&1
+            done < <(echo -e $CUBOID_Y_LIST)
+        done < <(echo -e $CUBOID_X_LIST)
+    done < <(echo -e $DATASET_LIST)
+}
+
 export_csv()
 {
     GREEN='\033[32m'
@@ -232,7 +265,7 @@ case "$TASK" in
         run_evaluation "$DATASET" "$SETTING"
         ;;
     test_run)
-        run_algorithm A new_dataset_A_week_12_n_elements_1_layers_1 "$NUM_WORKER"
+        run_algorithm D B_cuboid_layer_1_n_ele_1  "$NUM_WORKER" "--derived"
         ;;
     test_eval)
         run_evaluation A new_dataset_A_week_12_n_elements_1_layers_1
@@ -242,6 +275,9 @@ case "$TASK" in
         ;;
     A)
         run_A_all "$NUM_WORKER"
+        ;;
+    inspect)
+        inspect_all "$NUM_WORKER"
         ;;
     export)
         export_csv "$2"

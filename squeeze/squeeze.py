@@ -187,7 +187,7 @@ class Squeeze:
         if type(indices) == np.ndarray: # NOTE: for PSqueeze
             np.apply_along_axis(func1d=array2map, arr=indices, axis=1)
             indices = np.unique(indices[:, 0]).tolist()
-        assert len(self.data_list) == 1
+        # assert len(self.data_list) == 1
 
         data_cuboid_indexed = self.get_indexed_data(cuboid)
         logger.debug(f"current cuboid: {cuboid}")

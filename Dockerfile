@@ -1,14 +1,8 @@
-FROM python:3
+FROM psqueeze-env:0.1
 
-COPY . /PSqueeze
-WORKDIR /PSqueeze
+ARG USER_ID
+ARG GROUP_ID
 
-RUN apt-get update -y \
-    && apt-get install python3-pip -y \
-    && pip3 install -r requirements.txt \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get purge -y --auto-remove
-
-ENTRYPOINT ["./scripts/run.sh"]
-
-CMD [""]
+RUN addgroup --gid $GROUP_ID user
+RUN adduser --disabled-password --gecos '' --uid $USER_ID --gid $GROUP_ID user
+USER user
