@@ -21,7 +21,8 @@ B3
 B4
 A
 D
-data/
+data/*
+!data/data_gen.py
 result/
 output/
 .DS_Store

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 11:20:14 2020-02-05
+# * Last change   : 15:18:42 2020-02-06
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -13,7 +13,7 @@ WORKING_DIR=`pwd`
 SCRIPT_DIR=`dirname "$0"`
 SCRIPT_DIR=`cd $SCRIPT_DIR; pwd`
 MAIN_DIR=`cd ${SCRIPT_DIR}/../; pwd`
-DATA_DIR=`cd ${MAIN_DIR}/data/; pwd`
+DATA_DIR=`cd ${MAIN_DIR}/data/E; pwd`
 RESULT_DIR=${MAIN_DIR}/debug/
 
 [ ! -d "$RESULT_DIR" ] && mkdir "$RESULT_DIR"
@@ -187,6 +187,38 @@ inspect_all()
     done < <(echo -e $DATASET_LIST)
 }
 
+gen_data()
+{
+    NUM_WORKER="$1"
+    DATASET_LIST="B0\nB1\nB2\nB3\nB4"
+    CUBOID_X_LIST="1\n2\n3"
+    CUBOID_Y_LIST="1\n2\n3"
+    while read -r dataset; do
+        while read -r cuboid_x; do
+            while read -r cuboid_y; do
+                echo -e "\tgen $dataset $cuboid_x $cuboid_y now..."
+                ./data/data_gen.py "$dataset" "$cuboid_x" "$cuboid_y" 1 "$NUM_WORKER" \
+                    >/dev/null 2>&1
+            done < <(echo -e $CUBOID_Y_LIST)
+        done < <(echo -e $CUBOID_X_LIST)
+    done < <(echo -e $DATASET_LIST)
+
+    DATASET_LIST="A_week_12\nA_week_34\nA_week_56\nA_week_78"
+    CUBOID_X_LIST="1\n2\n3\n4\n5"
+    CUBOID_Y_LIST="1\n2\n3\n4"
+    while read -r dataset; do
+        while read -r cuboid_x; do
+            while read -r cuboid_y; do
+                setting=new_dataset_${dataset}_n_elements_${cuboid_x}_layers_${cuboid_y}
+                [ ! -d "${DATA_DIR}/A/${setting}" ] && continue
+                echo -e "\tgen $dataset $cuboid_x $cuboid_y now..."
+                ./data/data_gen.py "$dataset" "$cuboid_x" "$cuboid_y" 1 "$NUM_WORKER" \
+                    >/dev/null 2>&1
+            done < <(echo -e $CUBOID_Y_LIST)
+        done < <(echo -e $CUBOID_X_LIST)
+    done < <(echo -e $DATASET_LIST)
+}
+
 export_csv()
 {
     GREEN='\033[32m'
@@ -265,10 +297,10 @@ case "$TASK" in
         run_evaluation "$DATASET" "$SETTING"
         ;;
     test_run)
-        run_algorithm D B_cuboid_layer_1_n_ele_1  "$NUM_WORKER" "--derived"
+        run_algorithm B0 B_cuboid_layer_1_n_ele_1 "$NUM_WORKER"
         ;;
     test_eval)
-        run_evaluation A new_dataset_A_week_12_n_elements_1_layers_1
+        run_evaluation B0 B_cuboid_layer_1_n_ele_1
         ;;
     B)
         run_B_all "$NUM_WORKER"
@@ -278,6 +310,9 @@ case "$TASK" in
         ;;
     inspect)
         inspect_all "$NUM_WORKER"
+        ;;
+    data)
+        gen_data "$NUM_WORKER"
         ;;
     export)
         export_csv "$2"
