@@ -61,7 +61,7 @@ def main(name, input_path, output_path, num_workers, **kwargs):
     if not injection_info: injection_info = input_path / name / 'injection_info.csv'
     injection_info = pd.read_csv(injection_info, engine='c')
     timestamps = sorted(injection_info['timestamp'])
-    # timestamps = ['1'] # NOTE: for debug
+    # timestamps = ['1451225100'] # NOTE: for debug
     injection_info = injection_info.set_index(['timestamp'])
     if not dervied:
         results = Parallel(n_jobs=num_workers, backend="multiprocessing", verbose=100)(
@@ -83,7 +83,7 @@ def main(name, input_path, output_path, num_workers, **kwargs):
 def load_data(file_path: Path, injection_info, toint=False):
     df = pd.read_csv(file_path.resolve(), engine='python', dtype='str', delimiter=r"\s*,\s*")
     if "ex_rc_dim" in injection_info.columns:
-        ex_rc_dim = injection_info.loc[int(file_path.stem), "ex_rc_dim"]
+        ex_rc_dim = str(injection_info.loc[int(file_path.stem), "ex_rc_dim"])
         if not ex_rc_dim == "nan":
             df = df.drop(ex_rc_dim.split("&"), axis=1)
     df['real'] = df['real'].astype(float)
@@ -149,7 +149,8 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
         'timestamp': timestamp,
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
-        'external_rc': external_rc, # TODO
+        'ep': explanatory_power(model.derived_data, root_cause), 
+        'external_rc': external_rc,
     }
 
 
@@ -218,6 +219,16 @@ def executor_derived(file_path_list: List[Path], output_path: Path, **kwargs) ->
         'root_cause': root_cause,
         'external_rc': False,
     }
+
+def explanatory_power(df, rc_str):
+    if not rc_str: return 0.0
+    delta = df["real"].values.sum() - df["predict"].values.sum()
+    rc_list = [dict(map(lambda x: x.split("="), i.split("&"))) for i in rc_str.split(";")]
+    cover = df.loc[np.logical_or.reduce([
+        np.logical_and.reduce([df[k] == v for k,v in i.items()])
+        for i in rc_list
+    ])]
+    return (cover["real"].values.sum() - cover["predict"].values.sum()) / delta
 
 if __name__ == '__main__':
     main()

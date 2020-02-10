@@ -97,6 +97,7 @@ def evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return
             print(f"label_ext_rc_dim:{ex_rc_label}")
             print(f"pred_rc         :{AC.batch_to_string(pred)}")
             print(f"pred_external_rc:{predict[idx]['external_rc']}")
+            print(f"ep:{predict[idx]['ep']}")
             print(f"tp: {_tp}, fp: {_fp}, fn: {_fn}")
         del predict[idx]['root_cause']
     df = pd.DataFrame.from_records(predict)

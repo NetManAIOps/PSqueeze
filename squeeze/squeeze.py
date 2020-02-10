@@ -246,16 +246,6 @@ class Squeeze:
             # _ds = _normal_descent_score * _abnormal_descent_score
             # succinct = partition + len(cuboid) * len(cuboid)
 
-            # data_p['delta'] = [0 for i in range(len(data_p))]
-            # data_n['delta'] = [0 for i in range(len(data_n))]
-            # for idx, val in variance_map.items():
-            #     delta = sum(val) - len(val)
-            #     if delta == 0: continue
-            #     if idx in data_n.index:
-            #         data_n['delta'][idx] = delta
-            #     elif idx in data_p.index:
-            #         data_p['delta'][idx] = delta
-
             _v1, _v2 = data_p.real.values, data_n.real.values
             _pv, _pf = np.sum(_v1), np.sum(data_p.predict.values)
             _f1, _f2 = data_p.predict.values, data_n.predict.values
