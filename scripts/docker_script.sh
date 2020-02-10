@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : docker relevant script
-# * Last change   : 13:36:07 2020-02-05
+# * Last change   : 10:23:47 2020-02-10
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -31,6 +31,11 @@ build_image()
         --build-arg GROUP_ID=$(id -g) $MAIN_DIR
 }
 
+load_image()
+{
+    sudo docker load --input "$1"
+}
+
 help_info()
 {
     echo -e "USAGE: docker_script.sh {TASK} {DATASET} {SETTING} [NUM_WORKER]"
@@ -43,6 +48,9 @@ case "$1" in
         ;;
     build)
         build_image
+        ;;
+    load)
+        load_image "$2"
         ;;
     *)
         help_info

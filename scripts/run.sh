@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 15:18:42 2020-02-06
+# * Last change   : 10:40:33 2020-02-10
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -13,8 +13,9 @@ WORKING_DIR=`pwd`
 SCRIPT_DIR=`dirname "$0"`
 SCRIPT_DIR=`cd $SCRIPT_DIR; pwd`
 MAIN_DIR=`cd ${SCRIPT_DIR}/../; pwd`
-DATA_DIR=`cd ${MAIN_DIR}/data/E; pwd`
-RESULT_DIR=${MAIN_DIR}/debug/
+DATA_DIR=`cd ${MAIN_DIR}/data; pwd`
+GT_DATA_DIR=`cd ${MAIN_DIR}/data; pwd`
+RESULT_DIR=${MAIN_DIR}/toint/
 
 [ ! -d "$RESULT_DIR" ] && mkdir "$RESULT_DIR"
 RESULT_DIR=`cd ${RESULT_DIR}; pwd`
@@ -26,12 +27,14 @@ run_algorithm()
     SETTING=$2
     NUM_WORKER=$3
     DERIVED=$4
+    TOINT=$5
     [ ! -d "${RESULT_DIR}/${DATASET}" ] && mkdir "${RESULT_DIR}/${DATASET}"
     ./run_algorithm.py \
         --name ${SETTING} \
-        --input-path ${DATA_DIR}/${DATASET} \
+        --input-path ${GT_DATA_DIR}/${DATASET} \
         --output-path ${RESULT_DIR}/${DATASET}/${SETTING}/ \
-        --num-workers ${NUM_WORKER} ${DERIVED}
+        --injection_info ${DATA_DIR}/${DATASET}/${SETTING}/injection_info.csv \
+        --num-workers ${NUM_WORKER} ${DERIVED} ${TOINT}
 }
 
 run_evaluation()
@@ -41,7 +44,8 @@ run_evaluation()
     ./run_evaluation.py \
         --injection-info ${DATA_DIR}/${DATASET}/${SETTING}/injection_info.csv \
         --predict ${RESULT_DIR}/${DATASET}/${SETTING}/${SETTING}.json \
-        --config ${DATA_DIR}/${DATASET}/config.json
+        --config ${GT_DATA_DIR}/${DATASET}/config.json \
+        --groundtruth-dir ${GT_DATA_DIR}/${DATASET}/${SETTING}
 }
 
 help_info()
@@ -55,6 +59,7 @@ run_B_all()
     DATASET_LIST="B0\nB1\nB2\nB3\nB4"
     CUBOID_X_LIST="1\n2\n3"
     CUBOID_Y_LIST="1\n2\n3"
+    OTHER=$2
     while read -r dataset; do
         while read -r cuboid_x; do
             while read -r cuboid_y; do
@@ -62,7 +67,7 @@ run_B_all()
                 [ ! -d "${RESULT_DIR}/${dataset}" ] && mkdir "${RESULT_DIR}/${dataset}"
                 [ ! -d "${RESULT_DIR}/${dataset}/${setting}" ] && mkdir "${RESULT_DIR}/${dataset}/${setting}"
                 echo -e "\trun for $dataset $setting now..."
-                run_algorithm "$dataset" "$setting" "$NUM_WORKER" \
+                run_algorithm "$dataset" "$setting" "$NUM_WORKER" "$OTHER" \
                     >${RESULT_DIR}/${dataset}/${setting}/runtime.log 2>&1
                 echo -en "\t\t"
                 run_evaluation "$dataset" "$setting" 2>/dev/null | tail -1
@@ -297,13 +302,13 @@ case "$TASK" in
         run_evaluation "$DATASET" "$SETTING"
         ;;
     test_run)
-        run_algorithm B0 B_cuboid_layer_1_n_ele_1 "$NUM_WORKER"
+        run_algorithm B0 B_cuboid_layer_2_n_ele_2 "$NUM_WORKER"
         ;;
     test_eval)
-        run_evaluation B0 B_cuboid_layer_1_n_ele_1
+        run_evaluation B0 B_cuboid_layer_2_n_ele_2
         ;;
     B)
-        run_B_all "$NUM_WORKER"
+        run_B_all "$NUM_WORKER" --toint
         ;;
     A)
         run_A_all "$NUM_WORKER"
