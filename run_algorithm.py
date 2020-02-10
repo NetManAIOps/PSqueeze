@@ -27,7 +27,9 @@ import os
 @click.option("--output-path", help="if {output_path} is a dir, save to {output_path}/{name}.json; \
 otherwise save to {output_path}")
 @click.option("--num-workers", default=1, help="num of processes")
+@click.option("--injection_info", default="", help="path to injection info")
 @click.option("--derived", is_flag=True, help="means we should read {timestamp}.a.csv and {timestamp}.b.csv")
+@click.option("--toint", is_flag=True, help="means we should read {timestamp}.a.csv and {timestamp}.b.csv")
 def main(name, input_path, output_path, num_workers, **kwargs):
     """
     :param name:
@@ -43,6 +45,7 @@ def main(name, input_path, output_path, num_workers, **kwargs):
         format="[<green>{time}</green>, <blue>{level}</blue>] <white>{message}</white>"
     )
     dervied = kwargs.pop('derived')
+    injection_info = kwargs.pop('injection_info')
 
     input_path = Path(input_path)
     assert input_path.exists(), f"{input_path} does not exist"
@@ -55,12 +58,14 @@ def main(name, input_path, output_path, num_workers, **kwargs):
         output_path.mkdir()
         output_path = output_path / f"{name}.json"
     logger.info(f"save to {output_path}")
-    injection_info = pd.read_csv(input_path / name / 'injection_info.csv', engine='c')
+    if not injection_info: injection_info = input_path / name / 'injection_info.csv'
+    injection_info = pd.read_csv(injection_info, engine='c')
     timestamps = sorted(injection_info['timestamp'])
-    # timestamps = ['1535842800'] # NOTE: for debug
+    # timestamps = ['1'] # NOTE: for debug
+    injection_info = injection_info.set_index(['timestamp'])
     if not dervied:
         results = Parallel(n_jobs=num_workers, backend="multiprocessing", verbose=100)(
-            delayed(executor)(file_path, output_path.parent, **kwargs)
+            delayed(executor)(file_path, output_path.parent, injection_info, **kwargs)
             for file_path in map(lambda x: input_path / name / f'{x}.csv', timestamps))
     else:
         results = Parallel(n_jobs=num_workers, backend="multiprocessing", verbose=100)(
@@ -75,8 +80,23 @@ def main(name, input_path, output_path, num_workers, **kwargs):
     logger.info(results)
 
 
-def executor(file_path: Path, output_path: Path, **kwargs) -> Dict:
-    debug = kwargs.pop('debug', False),
+def load_data(file_path: Path, injection_info, toint=False):
+    df = pd.read_csv(file_path.resolve(), engine='python', dtype='str', delimiter=r"\s*,\s*")
+    if "ex_rc_dim" in injection_info.columns:
+        ex_rc_dim = injection_info.loc[int(file_path.stem), "ex_rc_dim"]
+        if not ex_rc_dim == "nan":
+            df = df.drop(ex_rc_dim.split("&"), axis=1)
+    df['real'] = df['real'].astype(float)
+    df['predict'] = df['predict'].astype(float)
+    if toint:
+        df['real'] = df['real'].astype(int)
+        df['predict'] = df['predict'].astype(int)
+    return df
+
+
+def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Dict:
+    debug = kwargs.pop('debug', False)
+    toint = kwargs.pop('toint', False)
     logger.remove()
     logger.add(
         sys.stdout, level='DEBUG',
@@ -84,9 +104,7 @@ def executor(file_path: Path, output_path: Path, **kwargs) -> Dict:
         backtrace=True
     )
     logger.info(f"running squeeze for {file_path}")
-    df = pd.read_csv(file_path.resolve(), engine='python', dtype='str', delimiter=r"\s*,\s*")
-    df['real'] = df['real'].astype(float)
-    df['predict'] = df['predict'].astype(float)
+    df = load_data(file_path, injection_info, toint)
     try:
         timestamp = int(file_path.name.rstrip('.csv'))
     except ValueError:
@@ -99,13 +117,15 @@ def executor(file_path: Path, output_path: Path, **kwargs) -> Dict:
         debug=debug,
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
         density_estimation_method="histogram_prob", 
-        max_bins=100, # NOTE here
+        # max_bins=100, # NOTE here
         **kwargs,
     )
     squeezeOption = SqueezeOption(
         psqueeze = False,
         debug=debug,
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
+        # max_bins=100, # NOTE here
+        # histogram_bar_width = 0.01,
         **kwargs,
     )
 
@@ -122,17 +142,19 @@ def executor(file_path: Path, output_path: Path, **kwargs) -> Dict:
     except IndexError:
         root_cause = ""
 
+    external_rc = len(root_cause.split(";")) >= 4
     toc = time.time()
     elapsed_time = toc - tic
     return {
         'timestamp': timestamp,
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
+        'external_rc': external_rc, # TODO
     }
 
 
 def executor_derived(file_path_list: List[Path], output_path: Path, **kwargs) -> Dict:
-    debug = kwargs.pop('debug', False),
+    debug = kwargs.pop('debug', False)
     logger.remove()
     ts = file_path_list[0].name.rstrip('.a.csv')
     logger.add(
@@ -158,15 +180,27 @@ def executor_derived(file_path_list: List[Path], output_path: Path, **kwargs) ->
     tic = time.time()
 
     divide = lambda x, y: np.divide(x, y, out=np.zeros_like(x), where=y != 0)
+    psqueezeOption = SqueezeOption(
+        psqueeze = True,
+        debug=debug,
+        fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
+        density_estimation_method="histogram_prob", 
+        # max_bins=100,
+        enable_filter=True,
+        **kwargs,
+    )
+    squeezeOption = SqueezeOption(
+        psqueeze = False,
+        debug=debug,
+        fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
+        enable_filter=True,
+        **kwargs,
+    )
+
     model = Squeeze(
         data_list=[dfa, dfb],
         op=divide,
-        option=SqueezeOption(
-            debug=debug,
-            fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
-            enable_filter=True,
-            **kwargs,
-        )
+        option=squeezeOption
     )
     model.run()
     logger.info("\n" + model.report)
@@ -182,6 +216,7 @@ def executor_derived(file_path_list: List[Path], output_path: Path, **kwargs) ->
         'timestamp': timestamp,
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
+        'external_rc': False,
     }
 
 if __name__ == '__main__':

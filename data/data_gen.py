@@ -39,7 +39,7 @@ def get_rc_dim(rc_str, n_ex_dim):
 def get_rc_dim_wrapper(n_ex_dim):
     return lambda x: get_rc_dim(x, n_ex_dim)
 
-def gen_exrc_data_for(dataset, n_elements, cuboid_layer, n_ex_dim=1, n_workers=20, ex_rc_ratio=0.5):
+def gen_exrc_data_for(dataset, n_elements, cuboid_layer, n_ex_dim=1, n_workers=20, ex_rc_ratio=0.5, only_info=True):
     if dataset.find("A_week") != -1:
         setting = f"new_dataset_{dataset}_n_elements_{n_elements}_layers_{cuboid_layer}"
         input_path = SCRIPT_DIR / "A" / setting
@@ -68,8 +68,9 @@ def gen_exrc_data_for(dataset, n_elements, cuboid_layer, n_ex_dim=1, n_workers=2
     make_dir(output_dir.resolve(), remove_flag=1)
     injection_info.to_csv(output_dir / "injection_info.csv", index=False)
 
-    Parallel(n_jobs=int(n_workers), backend="multiprocessing", verbose=100)(
-        delayed(group_for)(*i, input_path=input_path, output_dir=output_dir) for i in zip(timestamps, ex_rc))
+    if not only_info:
+        Parallel(n_jobs=int(n_workers), backend="multiprocessing", verbose=100)(
+            delayed(group_for)(*i, input_path=input_path, output_dir=output_dir) for i in zip(timestamps, ex_rc))
 
 if __name__ == "__main__":
     gen_exrc_data_for(*sys.argv[1:])
