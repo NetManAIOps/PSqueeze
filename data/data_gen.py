@@ -43,12 +43,12 @@ def gen_exrc_data_for(dataset, n_elements, cuboid_layer, n_ex_dim=1, n_workers=2
     if dataset.find("A_week") != -1:
         setting = f"new_dataset_{dataset}_n_elements_{n_elements}_layers_{cuboid_layer}"
         input_path = SCRIPT_DIR / "A" / setting
-        output_dir = SCRIPT_DIR / "E" / "A" / setting
+        output_dir = SCRIPT_DIR / f"E{n_ex_dim}" / "A" / setting
     else:
         assert dataset in [f"B{i}" for i in range(5)]
         setting = f"B_cuboid_layer_{cuboid_layer}_n_ele_{n_elements}"
         input_path = SCRIPT_DIR / dataset / setting
-        output_dir = SCRIPT_DIR / "E" / dataset / setting
+        output_dir = SCRIPT_DIR / f"E{n_ex_dim}" / dataset / setting
 
     injection_info = pd.read_csv(input_path / 'injection_info.csv', engine='c')
     rc = injection_info["set"].values
@@ -61,7 +61,7 @@ def gen_exrc_data_for(dataset, n_elements, cuboid_layer, n_ex_dim=1, n_workers=2
     mask = mask[:int(mask.size*ex_rc_ratio)]
     ex_rc[mask] = None
     def ex_rc_to_str(s):
-        if s[0]: return ";".join(sorted(s))
+        if type(s) == list: return ";".join(sorted(s))
         else: return None
     injection_info["ex_rc_dim"] = [ex_rc_to_str(i) for i in ex_rc.tolist()]
 

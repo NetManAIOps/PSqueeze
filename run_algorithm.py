@@ -85,7 +85,7 @@ def load_data(file_path: Path, injection_info, toint=False):
     if "ex_rc_dim" in injection_info.columns:
         ex_rc_dim = str(injection_info.loc[int(file_path.stem), "ex_rc_dim"])
         if not ex_rc_dim == "nan":
-            df = df.drop(ex_rc_dim.split("&"), axis=1)
+            df = df.drop(ex_rc_dim.split(";"), axis=1)
     df['real'] = df['real'].astype(float)
     df['predict'] = df['predict'].astype(float)
     if toint:
@@ -142,14 +142,18 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
     except IndexError:
         root_cause = ""
 
-    external_rc = len(root_cause.split(";")) >= 4
+    # post process
+    ep = explanatory_power(model.derived_data, root_cause)
+    external_rc = bool(ep < 0.8)
+    # external_rc = len(root_cause.split(";")) >= 4
+
     toc = time.time()
     elapsed_time = toc - tic
     return {
         'timestamp': timestamp,
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
-        'ep': explanatory_power(model.derived_data, root_cause), 
+        'ep': ep, 
         'external_rc': external_rc,
     }
 

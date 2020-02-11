@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 10:40:33 2020-02-10
+# * Last change   : 15:54:18 2020-02-11
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -13,9 +13,9 @@ WORKING_DIR=`pwd`
 SCRIPT_DIR=`dirname "$0"`
 SCRIPT_DIR=`cd $SCRIPT_DIR; pwd`
 MAIN_DIR=`cd ${SCRIPT_DIR}/../; pwd`
-DATA_DIR=`cd ${MAIN_DIR}/data; pwd`
+DATA_DIR=`cd ${MAIN_DIR}/data/E2; pwd`
 GT_DATA_DIR=`cd ${MAIN_DIR}/data; pwd`
-RESULT_DIR=${MAIN_DIR}/toint/
+RESULT_DIR=${MAIN_DIR}/E2_result/
 
 [ ! -d "$RESULT_DIR" ] && mkdir "$RESULT_DIR"
 RESULT_DIR=`cd ${RESULT_DIR}; pwd`
@@ -194,7 +194,8 @@ inspect_all()
 
 gen_data()
 {
-    NUM_WORKER="$1"
+    N_EX_RC="$1"
+    NUM_WORKER="$2"
     DATASET_LIST="B0\nB1\nB2\nB3\nB4"
     CUBOID_X_LIST="1\n2\n3"
     CUBOID_Y_LIST="1\n2\n3"
@@ -202,7 +203,7 @@ gen_data()
         while read -r cuboid_x; do
             while read -r cuboid_y; do
                 echo -e "\tgen $dataset $cuboid_x $cuboid_y now..."
-                ./data/data_gen.py "$dataset" "$cuboid_x" "$cuboid_y" 1 "$NUM_WORKER" \
+                ./data/data_gen.py "$dataset" "$cuboid_x" "$cuboid_y" "$N_EX_RC" "$NUM_WORKER" \
                     >/dev/null 2>&1
             done < <(echo -e $CUBOID_Y_LIST)
         done < <(echo -e $CUBOID_X_LIST)
@@ -217,7 +218,7 @@ gen_data()
                 setting=new_dataset_${dataset}_n_elements_${cuboid_x}_layers_${cuboid_y}
                 [ ! -d "${DATA_DIR}/A/${setting}" ] && continue
                 echo -e "\tgen $dataset $cuboid_x $cuboid_y now..."
-                ./data/data_gen.py "$dataset" "$cuboid_x" "$cuboid_y" 1 "$NUM_WORKER" \
+                ./data/data_gen.py "$dataset" "$cuboid_x" "$cuboid_y" "$N_EX_RC" "$NUM_WORKER" \
                     >/dev/null 2>&1
             done < <(echo -e $CUBOID_Y_LIST)
         done < <(echo -e $CUBOID_X_LIST)
@@ -302,13 +303,13 @@ case "$TASK" in
         run_evaluation "$DATASET" "$SETTING"
         ;;
     test_run)
-        run_algorithm B0 B_cuboid_layer_2_n_ele_2 "$NUM_WORKER"
+        run_algorithm B0 B_cuboid_layer_1_n_ele_1 "$NUM_WORKER"
         ;;
     test_eval)
-        run_evaluation B0 B_cuboid_layer_2_n_ele_2
+        run_evaluation B0 B_cuboid_layer_1_n_ele_1
         ;;
     B)
-        run_B_all "$NUM_WORKER" --toint
+        run_B_all "$NUM_WORKER"
         ;;
     A)
         run_A_all "$NUM_WORKER"
@@ -317,7 +318,7 @@ case "$TASK" in
         inspect_all "$NUM_WORKER"
         ;;
     data)
-        gen_data "$NUM_WORKER"
+        gen_data "${2:-1}" "$NUM_WORKER"
         ;;
     export)
         export_csv "$2"

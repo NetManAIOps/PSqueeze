@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : docker relevant script
-# * Last change   : 10:23:47 2020-02-10
+# * Last change   : 10:47:18 2020-02-11
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -9,6 +9,7 @@
 
 echo -e "PSqueeze script: docker manager..."
 
+WORKING_DIR=`pwd`
 SCRIPT_DIR=`dirname "$0"`
 SCRIPT_DIR=`cd $SCRIPT_DIR; pwd`
 MAIN_DIR=`cd ${SCRIPT_DIR}/../; pwd`
@@ -33,7 +34,11 @@ build_image()
 
 load_image()
 {
-    sudo docker load --input "$1"
+    TAR_PATH=$1
+    if [[ ! "$TAR_PATH" = /* ]]; then
+        SAVE_PATH=${WORKING_DIR}/${TAR_PATH}
+    fi 
+    sudo docker load --input "$TAR_PATH"
 }
 
 help_info()
