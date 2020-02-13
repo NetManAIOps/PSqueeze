@@ -117,6 +117,7 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
         debug=debug,
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
         density_estimation_method="histogram_prob", 
+        bias=1,
         # max_bins=100, # NOTE here
         **kwargs,
     )
@@ -144,8 +145,7 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
 
     # post process
     ep = explanatory_power(model.derived_data, root_cause)
-    external_rc = bool(ep < 0.8)
-    # external_rc = len(root_cause.split(";")) >= 4
+    external_rc = bool(ep < 0.8) or (len(root_cause.split(";")) >= 4)
 
     toc = time.time()
     elapsed_time = toc - tic

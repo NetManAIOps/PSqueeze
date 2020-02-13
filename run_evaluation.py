@@ -60,17 +60,12 @@ def evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return
                 else:
                     path = os.path.join(gt_dir, f"{item['timestamp']}.csv")
                     df = pd.read_csv(path)
-                    for rc_pred in pred:
-                        positive = False
-                        for rc_label in label:
-                            if get_jaccard_index(df, rc_label, rc_pred) > 0.8:
-                                positive = True
-                                break
-                        if positive:
-                            _fn -= 1
-                            _tp += 1
-                        else:
-                            _fp += 1
+                    ji = get_jaccard_index(df, pred, label)
+                    predict[idx]["ji"] = ji
+                    if ji > 0.8:
+                        _fn, _tp = 0, 1
+                    else:
+                        _fn, _fp = 1, len(pred)
             else:
                 if ex_rc_pred:
                     _fp = 1
@@ -99,6 +94,8 @@ def evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return
             print(f"pred_external_rc:{predict[idx]['external_rc']}")
             if 'ep' in predict[idx]:
                 print(f"ep:{predict[idx]['ep']}")
+            if 'ji' in predict[idx]:
+                print(f"ji:{predict[idx]['ji']}")
             print(f"tp: {_tp}, fp: {_fp}, fn: {_fn}")
         del predict[idx]['root_cause']
     df = pd.DataFrame.from_records(predict)
@@ -197,16 +194,17 @@ def evaluate_non_ex_rc(injection_info, predict, config, output_path, verbose, re
         return df
     return df_total
 
-def get_ac_from_df(df, ac):
-    for k, v in ac.items():
-        if v != "__ANY__":
-            df = df.loc[df[k] == v]
-    return df
+def get_ac_from_df(df, ac_list):
+    cover = df.loc[np.logical_or.reduce([
+        np.logical_and.reduce([df[k] == v for k,v in i.items() if v != "__ANY__"])
+        for i in ac_list
+    ])]
+    return cover
 
-def get_jaccard_index(df, ac1, ac2):
-    df1 = get_ac_from_df(df, ac1)
-    df2 = get_ac_from_df(df, ac2)
-    df1_and_df2 = get_ac_from_df(df1, ac2)
+def get_jaccard_index(df, ac_list_1, ac_list_2):
+    df1 = get_ac_from_df(df, ac_list_1)
+    df2 = get_ac_from_df(df, ac_list_2)
+    df1_and_df2 = get_ac_from_df(df1, ac_list_2)
     ji = df1_and_df2.size / (df1.size + df2.size - df1_and_df2.size)
     return ji
     

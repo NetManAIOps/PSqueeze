@@ -12,8 +12,8 @@ from pathlib import Path
 
 SCRIPT_DIR = Path(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_DIR = SCRIPT_DIR / "result_inspect"
-INPUT_DIR = SCRIPT_DIR / "debug"
-DATA_DIR = SCRIPT_DIR / "data" / "E"
+INPUT_DIR = SCRIPT_DIR / "psq_E3_result"
+DATA_DIR = SCRIPT_DIR / "data" / "E3"
 DEBUG = True
 
 def make_dir(path, remove_flag=0):
@@ -62,12 +62,18 @@ def result_inspect(name, fig1, fig2, num):
     ax.hist(x2, **kwargs, color='r', label='ex_rc')
     ax.legend()
 
+    x1 = result_non_exrc.ep.values
+    x2 = result_with_exrc.ep.values
+    kwargs = {
+        "alpha": 0.5,
+        "bins": (np.arange(20)-5)/10,
+    }
     ax = fig2.add_subplot(f"33{num+1}")
     ax.set_title(f"{name} ({n_elements}, {cuboid_layer})")
     ax.set_ylabel("num")
     ax.set_xlabel("explanatory power")
-    ax.hist(result_non_exrc.ep.values, alpha=0.5, color='g', label='non_ex_rc')
-    ax.hist(result_with_exrc.ep.values, alpha=0.5, color='r', label='ex_rc')
+    ax.hist(x1, **kwargs, color='g', label='non_ex_rc')
+    ax.hist(x2, **kwargs, color='r', label='ex_rc')
     ax.legend()
 
 def get_figure(name):
@@ -76,12 +82,12 @@ def get_figure(name):
     fig2 = plt.figure(figsize=(18,18))
     for i in range(9):
         result_inspect(name, fig1, fig2, i)
-    make_dir(OUTPUT_DIR, remove_flag=1)
-    fig1.savefig(OUTPUT_DIR / f"{name}_n_root_cause.png")
-    fig2.savefig(OUTPUT_DIR / f"{name}_ep.png")
+    fig1.savefig(OUTPUT_DIR / f"{DATA_DIR.stem}_{name}_n_root_cause.png")
+    fig2.savefig(OUTPUT_DIR / f"{DATA_DIR.stem}_{name}_ep.png")
 
 if __name__ == "__main__":
     tasks = [f"B{i}" for i in range(5)]
+    make_dir(OUTPUT_DIR, remove_flag=1)
     Parallel(n_jobs=len(tasks), backend="multiprocessing", verbose=100)(
         delayed(get_figure)(task) for task in tasks)
 

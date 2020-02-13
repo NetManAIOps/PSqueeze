@@ -396,15 +396,15 @@ class Squeeze:
 
     @property
     @lru_cache()
-    def leaf_deviation_score_with_variance(self, bias=1, min=0) -> np.ndarray:
+    def leaf_deviation_score_with_variance(self, min=0) -> np.ndarray:
         '''
         Return: numpy.array([[D(-1), D(0), D(+1)],...])
         '''
         # NOTE: for PSqueeze
         with np.errstate(divide='ignore', invalid='ignore'):
-            _minus = self.__deviation_score((self._v-bias).clip(min=min), self._f)
+            _minus = self.__deviation_score((self._v-self.option.bias).clip(min=min), self._f)
             _origin = self.__deviation_score(self._v, self._f)
-            _plus = self.__deviation_score(self._v+bias, self._f)
+            _plus = self.__deviation_score(self._v+self.option.bias, self._f)
             deviation_scores = np.array((_minus, _origin, _plus)).T
             del _minus, _origin, _plus
         assert np.shape(deviation_scores)[0] == np.shape(self._v)[0] == np.shape(self._f)[0], \
@@ -419,12 +419,12 @@ class Squeeze:
 
     @property
     @lru_cache()
-    def leaf_deviation_weights_with_variance(self, bias=1) -> np.ndarray:
+    def leaf_deviation_weights_with_variance(self) -> np.ndarray:
         '''
         Return: numpy.array([[W(-1), W(0), W(+1)],...])
         '''
         # NOTE: for PSqueeze
-        histogram_weights = self.__variance_weights(self._v, self._f, bias, min=1)
+        histogram_weights = self.__variance_weights(self._v, self._f, self.option.bias, self.option.bias)
         assert np.shape(histogram_weights)[0] == np.shape(self._v)[0] == np.shape(self._f)[0], \
             f"bad histogram weights shape {np.shape(histogram_weights)}"
         assert np.sum(np.isnan(histogram_weights)) == 0, \
@@ -497,7 +497,7 @@ class Squeeze:
         return ret
 
     @staticmethod
-    def __variance_weights(v, f, bias, min=1):
+    def __variance_weights(v, f, bias, min):
         # NOTE: for PSqueeze
         with np.errstate(divide='ignore', invalid='ignore'):
             _v = (v+0.5).astype(int).clip(min=min) # round to integer

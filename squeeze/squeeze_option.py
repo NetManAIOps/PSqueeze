@@ -7,6 +7,7 @@ class SqueezeOption:
         self.psqueeze = True
         self.non_var_split_ratio = 4
         self.max_bins = None
+        self.bias = 1
 
         # Filter
         self.enable_filter = True
