@@ -155,6 +155,7 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
         'root_cause': root_cause,
         'ep': ep, 
         'external_rc': external_rc,
+        'info_collect': model.info_collect,
     }
 
 

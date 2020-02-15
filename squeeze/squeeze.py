@@ -24,6 +24,12 @@ class Squeeze:
             all elements in this list must have exactly the same attribute combinations in the same order
         """
         self.option = option
+        self.info_collect = {
+            "scores": [],
+            "ranks": [],
+            "n_eles": [],
+            "layers": [],
+        }
 
         self.one_dim_cluster = cluster_factory(self.option) # DensityBased1dCluster(option)
         self.cluster_list = []  # type: List[np.ndarray]
@@ -374,12 +380,35 @@ class Squeeze:
                 f"find root cause: {AC.batch_to_string(ret)}, rank: {ret_lists[0]['rank']}, score: {ret_lists[0]['score']}")
             logger.debug(f"candidate: {list(map(lambda x: (AC.batch_to_string(x['rc']), x['score'], x['rank']), ret_lists[:min(3, len(ret_lists))]))}")
             self._root_cause.append(frozenset(ret))
+            self.info_collect["scores"].append(ret_lists[0]['score'])
+            self.info_collect["ranks"].append(ret_lists[0]['rank'])
+            self.info_collect["n_eles"].append(ret_lists[0]['n_ele'])
+            self.info_collect["layers"].append(ret_lists[0]['layer'])
         else:
             logger.info("failed to find root cause")
+
+    def update_info_collect(self):
+        def update_info(d, k):
+            if len(d[k]) == 0:
+                d[f"{k}_mean"] = float("nan")
+                d[f"{k}_std"] = float("nan")
+                d[f"{k}_max"] = float("nan")
+                d[f"{k}_min"] = float("nan")
+            else:
+                d[f"{k}_mean"] = float(np.mean(d[k]))
+                d[f"{k}_std"] = float(np.std(d[k]))
+                d[f"{k}_max"] = float(np.max(d[k]))
+                d[f"{k}_min"] = float(np.min(d[k]))
+            del d[k]
+        update_info(self.info_collect, "scores")
+        update_info(self.info_collect, "ranks")
+        update_info(self.info_collect, "n_eles")
+        update_info(self.info_collect, "layers")
 
     def locate_root_cause(self):
         if not self.cluster_list:
             logger.info("We do not have abnormal points")
+            self.update_info_collect()
             return
         if self.option.score_weight == 'auto':
             num_sample = len(self._f)
@@ -390,9 +419,10 @@ class Squeeze:
                 sum(len(_) for _ in self.cluster_list) / num_sample) / np.log(
                 sum(len(_) for _ in self.attribute_values)) * sum(len(_) for _ in self.attribute_values)
             logger.debug(f"auto score weight: {self.option.score_weight}")
-            # assert self.option.score_weight > 0
+            self.info_collect["score_weight"] = self.option.score_weight
         for indices in self.cluster_list:
             self._locate_in_cluster(indices)
+        self.update_info_collect()
 
     @property
     @lru_cache()
