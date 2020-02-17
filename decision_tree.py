@@ -93,4 +93,10 @@ dot_data = tree.export_graphviz(
 )
 
 graph = graphviz.Source(dot_data)
-graph.render('decision_tree.gv', cleanup=True, directory=OUTPUT_DIR, view=False)
+graph.render(
+    filename='decision_tree',
+    format='png',
+    cleanup=True, 
+    directory=OUTPUT_DIR, 
+    view=False,
+)

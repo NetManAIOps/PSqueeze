@@ -14,6 +14,7 @@ from joblib import Parallel, delayed
 from loguru._defaults import LOGURU_FORMAT
 
 from utility import AC, AttributeCombination
+from post_process import post_process
 from squeeze import Squeeze, SqueezeOption
 import pandas as pd
 from loguru import logger
@@ -145,11 +146,7 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
 
     # post process
     ep = explanatory_power(model.derived_data, root_cause)
-    external_rc = bool(ep < 0.8) or (len(root_cause.split(";")) >= 4)
-
-    toc = time.time()
-    elapsed_time = toc - tic
-    return {
+    result = {
         'timestamp': timestamp,
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
@@ -157,7 +154,11 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
         'external_rc': external_rc,
         'info_collect': model.info_collect,
     }
+    post_process(result)
 
+    toc = time.time()
+    elapsed_time = toc - tic
+    return result
 
 def executor_derived(file_path_list: List[Path], output_path: Path, **kwargs) -> Dict:
     debug = kwargs.pop('debug', False)
