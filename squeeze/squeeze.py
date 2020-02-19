@@ -12,6 +12,7 @@ import numpy as np
 from squeeze.anomaly_amount_fileter import KPIFilter
 from squeeze.squeeze_option import SqueezeOption
 from squeeze.clustering import cluster_factory
+from squeeze.clustering.cluster_plot import plot_cluster
 from scipy.spatial.distance import cityblock, euclidean
 from scipy.special import factorial
 
@@ -133,7 +134,7 @@ class Squeeze:
             self.filtered_indices = kpi_filter.filtered_indices
             if self.option.psqueeze:
                 # NOTE: for PSqueeze
-                cluster_list = self.one_dim_cluster(
+                cluster_list, plot_kwargs = self.one_dim_cluster(
                     self.leaf_deviation_score_with_variance[self.filtered_indices],
                     self.leaf_deviation_weights_with_variance[self.filtered_indices]
                 )
@@ -159,7 +160,7 @@ class Squeeze:
                     np.array([(_/3).astype(int), _%3]).T
                 for _ in cluster_list])
             else:
-                cluster_list = self.one_dim_cluster(self.leaf_deviation_score[self.filtered_indices])
+                cluster_list, plot_kwargs = self.one_dim_cluster(self.leaf_deviation_score[self.filtered_indices])
                 cluster_list = list([kpi_filter.inverse_map(_) for _ in cluster_list])
                 cluster_list = list(
                     [list(
@@ -172,7 +173,16 @@ class Squeeze:
             self.cluster_list = cluster_list
         else:
             self.filtered_indices = np.ones(len(self._v), dtype=bool)
-            self.cluster_list = self.one_dim_cluster(self.leaf_deviation_score)
+            self.cluster_list, plot_kwargs = self.one_dim_cluster(self.leaf_deviation_score)
+
+        if self.option.debug:
+            plot_kwargs.update({
+                "save_path": self.option.fig_save_path.format(suffix="_density_cluster"),
+                "f_values": self._f,
+                "v_values": self._v,
+                "clusters": self.cluster_list,
+            })
+            plot_cluster(**plot_kwargs)
 
         self.locate_root_cause()
         self.__finished = True

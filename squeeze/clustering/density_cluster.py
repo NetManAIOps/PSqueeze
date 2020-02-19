@@ -9,7 +9,6 @@ from squeeze.clustering.cluster import Cluster
 from squeeze.squeeze_option import SqueezeOption
 from kneed import KneeLocator
 from histogram_bin_edges import freedman_diaconis_bins
-# from scipy.special import factorial
 import json
 import sys
 
@@ -79,7 +78,7 @@ class DensityBased1dCluster(Cluster):
         width = self.option.histogram_bar_width
         return _get_hist(width)
 
-    def _cluster(self, array, density_array: np.ndarray, bins, plot=False):
+    def _cluster(self, array, density_array: np.ndarray, bins):
         # NOTE: array is flattened
         def significant_greater(a, b):
             return (a - b) / (a + b) > 0.1
@@ -92,11 +91,6 @@ class DensityBased1dCluster(Cluster):
             density_array, comparator=lambda x, y: x <= y,
             axis=0, order=order, mode='wrap')[0]
         extreme_max_indices = list(filter(lambda x: density_array[x] > 0, extreme_max_indices))
-        if plot:
-            for idx in extreme_max_indices:
-                plt.axvline(bins[idx], linestyle="-", color="red", label="relmax", alpha=0.5, linewidth=0.8)
-            for idx in extreme_min_indices:
-                plt.axvline(bins[idx], linestyle="--", color="blue", label="relmin", alpha=0.5, linewidth=0.8)
 
         cluster_list = []
         boundaries = np.asarray([float('-inf')] + [bins[index] for index in extreme_min_indices] + [float('+inf')])
@@ -120,7 +114,7 @@ class DensityBased1dCluster(Cluster):
             if np.abs(mu) < self.option.max_normal_deviation or len(cluster) <= 0:
                 continue
             cluster_list.append(cluster_indices)
-        return cluster_list
+        return cluster_list, (extreme_max_indices, extreme_min_indices)
 
     def __call__(self, array, weights=None):
         array = array.copy()
@@ -128,46 +122,24 @@ class DensityBased1dCluster(Cluster):
             density_array, bins = self.density_estimation_func(array)
         else:
             density_array, bins = self.density_estimation_func(array, weights)
-        # normal_idxes = self._find_normal_indices(array, density_array, bins)
-        # density_array, bins = self.density_estimation_func(array[~normal_idxes])
         density_array = np.copy(density_array)
         if self.option.cluster_smooth_window_size == "auto":
-            # window_size = max(int(np.log(np.count_nonzero(bins[density_array > 0.])) / np.log(10)), 1)
             window_size = max(np.count_nonzero(density_array > 0) // 10, 1)
             logger.debug(f"auto window size: {window_size} {np.count_nonzero(density_array > 0)}")
         else:
             window_size = self.option.cluster_smooth_window_size
         smoothed_density_array = smooth(density_array, window_size)
-        if self.option.debug:
-            fig, ax1 = plt.subplots(figsize=(3.6, 1.8))
-            sns.distplot(array.flatten(), bins='auto', label="density", hist=True, kde=False, norm_hist=True, ax=ax1)
-            ax1.set_ylim([0, None])
-            # ax2 = ax1.twinx()
-            # ax2.plot(bins, smoothed_density_array, label="smoothed", linestyle="-.")
-            # ax2.set_ylim([0, None])
         array = array.ravel()
-        clusters = self._cluster(array, smoothed_density_array, bins, plot=self.option.debug)
+        clusters, extreme_indices = self._cluster(array, smoothed_density_array, bins)
+
+        plot_kwargs = {}
         if self.option.debug:
             for cluster in clusters:
                 left_boundary, right_boundary = np.min(array[cluster]), np.max(array[cluster])
-                # plt.axvline(left_boundary, c='C0', alpha=0.5, linestyle='--')
-                # plt.axvline(right_boundary, c='C1', alpha=0.5, linestyle=':')
                 logger.debug(f"cluster: [{left_boundary}, {right_boundary}]")
-            by_label1 = dict(zip(*reversed(ax1.get_legend_handles_labels())))
-            # by_label2 = dict(zip(*reversed(ax2.get_legend_handles_labels())))
-            by_label2 = {}
-            # logger.debug(f"{by_label1}, {by_label2}")
-            plt.legend(
-                list(by_label1.values()) + list(by_label2.values()),
-                list(by_label1.keys()) + list(by_label2.keys()), bbox_to_anchor=(0.47, 0.5)
-            )
-            plt.xlim([-0.9, 1])
-            # plt.title(self.option.density_estimation_method)
-            plt.xlabel('deviation score')
-            plt.ylabel('pdf')
-            plt.tight_layout()
-            # plt.show()
-            plt.savefig(self.option.fig_save_path.format(suffix="_density_cluster"))
-            plt.close()
-        return clusters
-
+            plot_kwargs = {
+                "ds_values": array,
+                "extreme_indices": extreme_indices,
+                "bins": bins,
+            }
+        return clusters, plot_kwargs

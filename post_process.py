@@ -17,7 +17,7 @@ def post_process(result):
         if result["info_collect"]["scores_min"] < 0.75:
             result["external_rc"] = True
         else:
-            result["external_rc"] = (result["ep"] < 0.65) or (n_rc > 3)
+            result["external_rc"] = bool((result["ep"] < 0.65) and (n_rc > 3))
 
 def change_result():
     paths = [

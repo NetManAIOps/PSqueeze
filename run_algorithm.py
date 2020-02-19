@@ -62,7 +62,7 @@ def main(name, input_path, output_path, num_workers, **kwargs):
     if not injection_info: injection_info = input_path / name / 'injection_info.csv'
     injection_info = pd.read_csv(injection_info, engine='c')
     timestamps = sorted(injection_info['timestamp'])
-    # timestamps = ['1451225100'] # NOTE: for debug
+    # timestamps = ['1451118000'] # NOTE: for debug
     injection_info = injection_info.set_index(['timestamp'])
     if not dervied:
         results = Parallel(n_jobs=num_workers, backend="multiprocessing", verbose=100)(
@@ -134,15 +134,19 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
     model = Squeeze(
         data_list=[df],
         op=lambda x: x,
-        option=psqueezeOption
+        option=psqueezeOption,
     )
     model.run()
+
     logger.info("\n" + model.report)
     try:
         root_cause = AC.batch_to_string(
             frozenset(reduce(lambda x, y: x.union(y), model.root_cause, set())))  # type:
     except IndexError:
         root_cause = ""
+
+    toc = time.time()
+    elapsed_time = toc - tic
 
     # post process
     ep = explanatory_power(model.derived_data, root_cause)
@@ -151,13 +155,10 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
         'ep': ep, 
-        'external_rc': external_rc,
         'info_collect': model.info_collect,
     }
     post_process(result)
 
-    toc = time.time()
-    elapsed_time = toc - tic
     return result
 
 def executor_derived(file_path_list: List[Path], output_path: Path, **kwargs) -> Dict:
