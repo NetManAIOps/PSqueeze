@@ -17,13 +17,18 @@ INPUT_DIR = SCRIPT_DIR
 OUTPUT_DIR = SCRIPT_DIR
 GT_DIR = SCRIPT_DIR / "data"
 
+As = [12, 34, 56, 78]
+Bs = [f"B{i}" for i in range(5)]
 
 # load results
 paths = [
     [INPUT_DIR],
     [f"psq_E{i+1}_result" for i in range(3)],
-    [f"B{i}" for i in range(5)],
-    ["/".join([f"B_cuboid_layer_{(i//3)+1}_n_ele_{(i%3)+1}"]*2)+".json" for i in range(9)],
+    # Bs,
+    ['A'],
+    # ["/".join([f"B_cuboid_layer_{(i//3)+1}_n_ele_{(i%3)+1}"]*2)+".json" for i in range(9)],
+    ["/".join([f"new_dataset_A_week_{k[0]}_n_elements_{(k[1]%3)+1}_layers_{(k[1]//3)+1}"]*2)+".json"
+        for k in itertools.product(As, [i for i in range(9)])],
 ]
 
 paths = list(map(
@@ -43,15 +48,18 @@ df = pd.DataFrame.from_records(list(itertools.chain.from_iterable([
             key=lambda x: x['timestamp']
         )
     for i in paths
-])), exclude=["scores", "ranks", "n_eles", "layers"])
+])))
 
 
 # load labels
 paths = [
     [GT_DIR],
     [f"E{i+1}" for i in range(3)],
-    [f"B{i}" for i in range(5)],
-    [f"B_cuboid_layer_{(i//3)+1}_n_ele_{(i%3)+1}/injection_info.csv" for i in range(9)],
+    # Bs,
+    ['A'],
+    # [f"B_cuboid_layer_{(i//3)+1}_n_ele_{(i%3)+1}/injection_info.csv" for i in range(9)],
+    [f"new_dataset_A_week_{k[0]}_n_elements_{(k[1]%3)+1}_layers_{(k[1]//3)+1}/injection_info.csv"
+        for k in itertools.product(As, [i for i in range(9)])],
 ]
 
 paths = list(map(

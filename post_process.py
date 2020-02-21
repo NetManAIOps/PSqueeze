@@ -14,20 +14,22 @@ def post_process(result):
         result["external_rc"] = True
     else:
         assert "scores_min" in result["info_collect"], f"{result}"
-        if result["info_collect"]["scores_min"] < 0.75:
+        if result["info_collect"]["scores_min"] < 0.86:
             result["external_rc"] = True
-        else:
-            result["external_rc"] = bool((result["ep"] < 0.65) and (n_rc > 3))
+        # else:
+        #     result["external_rc"] = bool((result["ep"] < 0.65) and (n_rc > 3))
 
 def change_result():
     paths = [
         ["E1", "E2", "E3"],
-        ["B0", "B1", "B2", "B3", "B4"],
+        # ["B0", "B1", "B2", "B3", "B4"],
+        [12, 34, 56, 78],
         [1, 2, 3],
         [1, 2, 3],
     ]
     paths = list(map(
-        lambda x: f"{SCRIPT_DIR}/psq_{x[0]}_result/{x[1]}/B_cuboid_layer_{x[2]}_n_ele_{x[3]}/B_cuboid_layer_{x[2]}_n_ele_{x[3]}.json",
+        # lambda x: f"{SCRIPT_DIR}/psq_{x[0]}_result/{x[1]}/B_cuboid_layer_{x[2]}_n_ele_{x[3]}/B_cuboid_layer_{x[2]}_n_ele_{x[3]}.json",
+        lambda x: f"{SCRIPT_DIR}/psq_{x[0]}_result/A"+f"/new_dataset_A_week_{x[1]}_n_elements_{x[2]}_layers_{x[3]}"*2+".json",
         itertools.product(*paths)
     ))
     for p in paths:

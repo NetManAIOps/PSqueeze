@@ -34,7 +34,7 @@ def get_rc_dim(rc_str, n_ex_dim):
     rc_dim = list(map(lambda x: x.split("&"), rc_str.split(";")))
     rc_dim = [item for sublist in rc_dim for item in sublist]
     ret = list(set(map(lambda x: x.split("=")[0], rc_dim)))
-    return ret[:min(n_ex_dim, len(ret))]
+    return ";".join(sorted(ret[:min(n_ex_dim, len(ret))]))
 
 def get_rc_dim_wrapper(n_ex_dim):
     return lambda x: get_rc_dim(x, n_ex_dim)
@@ -60,10 +60,7 @@ def gen_exrc_data_for(dataset, n_elements, cuboid_layer, n_ex_dim=1, n_workers=2
     np.random.shuffle(mask)
     mask = mask[:int(mask.size*ex_rc_ratio)]
     ex_rc[mask] = None
-    def ex_rc_to_str(s):
-        if type(s) == list: return ";".join(sorted(s))
-        else: return None
-    injection_info["ex_rc_dim"] = [ex_rc_to_str(i) for i in ex_rc.tolist()]
+    injection_info["ex_rc_dim"] = ex_rc
 
     make_dir(output_dir.resolve(), remove_flag=1)
     injection_info.to_csv(output_dir / "injection_info.csv", index=False)
