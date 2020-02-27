@@ -37,7 +37,7 @@ def get_threshold(array):
     density_array = np.concatenate([density_array[:window_size - 1], density_array])
 
     extreme_max_indices = argrelextrema(
-        density_array, comparator=lambda x, y: x > y,
+        density_array, comparator=lambda x, y: x >= y,
         axis=0, order=1, mode='wrap')[0]
     extreme_min_indices = argrelextrema(
         density_array, comparator=lambda x, y: x <= y,
@@ -54,14 +54,14 @@ def get_threshold(array):
 def change_result():
     paths = [
         ["E1", "E2", "E3"],
-        # ["B0", "B1", "B2", "B3", "B4"],
-        [12, 34, 56, 78],
+        ["B0", "B1", "B2", "B3", "B4"],
+        # [12, 34, 56, 78],
         [1, 2, 3],
         [1, 2, 3],
     ]
     paths = list(map(
-        # lambda x: f"{SCRIPT_DIR}/psq_{x[0]}_result/{x[1]}/B_cuboid_layer_{x[2]}_n_ele_{x[3]}/B_cuboid_layer_{x[2]}_n_ele_{x[3]}.json",
-        lambda x: f"{SCRIPT_DIR}/psq_{x[0]}_result/A"+f"/new_dataset_A_week_{x[1]}_n_elements_{x[2]}_layers_{x[3]}"*2+".json",
+        lambda x: f"{SCRIPT_DIR}/psq_{x[0]}_result/{x[1]}/B_cuboid_layer_{x[2]}_n_ele_{x[3]}/B_cuboid_layer_{x[2]}_n_ele_{x[3]}.json",
+        # lambda x: f"{SCRIPT_DIR}/psq_{x[0]}_result/A"+f"/new_dataset_A_week_{x[1]}_n_elements_{x[2]}_layers_{x[3]}"*2+".json",
         itertools.product(*paths)
     ))
     for p in paths:
