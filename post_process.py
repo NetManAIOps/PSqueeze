@@ -4,20 +4,52 @@
 import json 
 import os
 import itertools
+import numpy as np 
+from scipy.signal import argrelextrema
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-def post_process(result):
-    result["external_rc"] = False
-    n_rc = len([i for i in result["root_cause"].split(";") if i])
-    if n_rc == 0:
-        result["external_rc"] = True
-    else:
-        assert "scores_min" in result["info_collect"], f"{result}"
-        if result["info_collect"]["scores_min"] < 0.86:
+def post_process(results):
+    scores_min = np.array([
+        i["info_collect"]["scores_min"]
+        for i in results if "scores_min" in i["info_collect"]
+    ])
+    scores_min = scores_min[~np.isnan(scores_min)]
+    threshold = get_threshold(scores_min)
+    for result in results:
+        result["external_rc"] = False
+        n_rc = len([i for i in result["root_cause"].split(";") if i])
+        if n_rc == 0:
             result["external_rc"] = True
-        # else:
-        #     result["external_rc"] = bool((result["ep"] < 0.65) and (n_rc > 3))
+        else:
+            if result["info_collect"]["scores_min"] < threshold:
+                result["external_rc"] = True
+            # else:
+            #     result["external_rc"] = bool((result["ep"] < 0.65) and (n_rc > 3))
+
+def get_threshold(array):
+    density_array, edges = np.histogram(array, bins='auto', range=(-0.2, 1.2), density=True)
+    density_array /= 100.
+    bins = np.convolve(edges, [1, 1], 'valid') / 2
+
+    window_size = max(np.count_nonzero(density_array > 0) // 10, 1)
+    density_array = np.convolve(density_array, np.ones(window_size), mode="valid") / window_size
+    density_array = np.concatenate([density_array[:window_size - 1], density_array])
+
+    extreme_max_indices = argrelextrema(
+        density_array, comparator=lambda x, y: x > y,
+        axis=0, order=1, mode='wrap')[0]
+    extreme_min_indices = argrelextrema(
+        density_array, comparator=lambda x, y: x <= y,
+        axis=0, order=1, mode='wrap')[0]
+    extreme_max_indices = list(filter(lambda x: density_array[x] > 0, extreme_max_indices))
+
+    try:
+        threshold = bins[extreme_min_indices[extreme_min_indices < extreme_max_indices[-1]][-1]]
+    except IndexError as e:
+        threshold = 0.8
+    return threshold
+
 
 def change_result():
     paths = [
@@ -35,8 +67,7 @@ def change_result():
     for p in paths:
         with open(p, 'r') as f:
             results = json.load(f)
-        for r in results:
-            post_process(r)
+        post_process(results)
         with open(p, "w+") as f:
             json.dump(results, f, indent=4)
 

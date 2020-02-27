@@ -76,6 +76,7 @@ def main(name, input_path, output_path, num_workers, **kwargs):
                 timestamps
             )
         )
+    post_process(results)
     with open(str(output_path.resolve()), "w+") as f:
         json.dump(results, f, indent=4)
     logger.info(results)
@@ -148,7 +149,6 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
     toc = time.time()
     elapsed_time = toc - tic
 
-    # post process
     ep = explanatory_power(model.derived_data, root_cause)
     result = {
         'timestamp': timestamp,
@@ -157,7 +157,6 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
         'ep': ep, 
         'info_collect': model.info_collect,
     }
-    post_process(result)
 
     return result
 
