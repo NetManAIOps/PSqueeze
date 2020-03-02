@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # **********************************************************************
 # * Description   : run experiment script
-# * Last change   : 13:13:55 2020-02-21
+# * Last change   : 20:09:06 2020-03-02
 # * Author        : Yihao Chen
 # * Email         : chenyiha17@mails.tsinghua.edu.cn
 # * License       : none
@@ -13,9 +13,9 @@ WORKING_DIR=`pwd`
 SCRIPT_DIR=`dirname "$0"`
 SCRIPT_DIR=`cd $SCRIPT_DIR; pwd`
 MAIN_DIR=`cd ${SCRIPT_DIR}/../; pwd`
-DATA_DIR=`cd ${MAIN_DIR}/data/E3; pwd`
+DATA_DIR=`cd ${MAIN_DIR}/data/E1; pwd`
 GT_DATA_DIR=`cd ${MAIN_DIR}/data; pwd`
-RESULT_DIR=${MAIN_DIR}/psq_E3_result/
+RESULT_DIR=${MAIN_DIR}/psq_E1_result/
 
 [ ! -d "$RESULT_DIR" ] && mkdir "$RESULT_DIR"
 RESULT_DIR=`cd ${RESULT_DIR}; pwd`
@@ -204,7 +204,7 @@ gen_data()
             while read -r cuboid_y; do
                 echo -e "\tgen $dataset $cuboid_x $cuboid_y now..."
                 ./data/data_gen.py "$dataset" "$cuboid_x" "$cuboid_y" "$N_EX_RC" "$NUM_WORKER" \
-                    >/dev/null 2>&1
+                    >/dev/null
             done < <(echo -e $CUBOID_Y_LIST)
         done < <(echo -e $CUBOID_X_LIST)
     done < <(echo -e $DATASET_LIST)
@@ -219,7 +219,7 @@ gen_data()
                 [ ! -d "${GT_DATA_DIR}/A/${setting}" ] && continue
                 echo -e "\tgen $dataset $cuboid_x $cuboid_y now..."
                 ./data/data_gen.py "$dataset" "$cuboid_x" "$cuboid_y" "$N_EX_RC" "$NUM_WORKER" \
-                    >/dev/null 2>&1
+                    >/dev/null
             done < <(echo -e $CUBOID_Y_LIST)
         done < <(echo -e $CUBOID_X_LIST)
     done < <(echo -e $DATASET_LIST)
@@ -307,8 +307,8 @@ case "$TASK" in
         run_algorithm A new_dataset_A_week_12_n_elements_2_layers_1 "$NUM_WORKER"
         ;;
     test_eval)
-        # run_evaluation B0 B_cuboid_layer_1_n_ele_1
-        run_evaluation A new_dataset_A_week_12_n_elements_2_layers_1
+        run_evaluation B4 B_cuboid_layer_1_n_ele_3
+        # run_evaluation A new_dataset_A_week_12_n_elements_2_layers_1
         ;;
     B)
         run_B_all "$NUM_WORKER"

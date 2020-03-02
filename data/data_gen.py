@@ -2,6 +2,7 @@
 #-*- coding: utf-8 -*-
 import os
 import sys
+import json
 import pandas as pd 
 import numpy as np
 import shutil
@@ -30,14 +31,15 @@ def group_for(timestamp, ex_rc, input_path, output_dir):
     
     df.to_csv(target_file, index=False, columns=keys)
 
-def get_rc_dim(rc_str, n_ex_dim):
+def get_rc_dim(rc_str, n_ex_dim, all_dim):
     rc_dim = list(map(lambda x: x.split("&"), rc_str.split(";")))
     rc_dim = [item for sublist in rc_dim for item in sublist]
     ret = list(set(map(lambda x: x.split("=")[0], rc_dim)))
+    ret = ret + list(set(all_dim) - set(ret))
     return ";".join(sorted(ret[:min(n_ex_dim, len(ret))]))
 
-def get_rc_dim_wrapper(n_ex_dim):
-    return lambda x: get_rc_dim(x, n_ex_dim)
+def get_rc_dim_wrapper(n_ex_dim, all_dim):
+    return lambda x: get_rc_dim(x, n_ex_dim, all_dim)
 
 def gen_exrc_data_for(dataset, n_elements, cuboid_layer, n_ex_dim=1, n_workers=20, ex_rc_ratio=0.5, only_info=True):
     if dataset.find("A_week") != -1:
@@ -50,11 +52,12 @@ def gen_exrc_data_for(dataset, n_elements, cuboid_layer, n_ex_dim=1, n_workers=2
         input_path = SCRIPT_DIR / dataset / setting
         output_dir = SCRIPT_DIR / f"E{n_ex_dim}" / dataset / setting
 
+    all_dim = json.load(open(input_path.parent / "config.json", 'r'))["columns"]
     injection_info = pd.read_csv(input_path / 'injection_info.csv', engine='c')
     rc = injection_info["set"].values
     timestamps = injection_info['timestamp'].values
 
-    ex_rc = np.array(list(map(get_rc_dim_wrapper(int(n_ex_dim)), rc)), dtype=object)
+    ex_rc = np.array(list(map(get_rc_dim_wrapper(int(n_ex_dim), all_dim), rc)), dtype=object)
 
     mask = np.arange(rc.size)
     np.random.shuffle(mask)
