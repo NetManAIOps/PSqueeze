@@ -23,7 +23,7 @@ def evaluate(injection_info, predict, config, output_path, groundtruth_dir, verb
         predict = json.load(f)
     with open(config, 'r') as f:
         config = json.load(f)
-    injection_info.set_index(['timestamp'], inplace=True)
+    injection_info = injection_info.set_index(['timestamp']).sort_values(by="timestamp")
     if "ex_rc_dim" in injection_info.columns:
         evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return_detail, groundtruth_dir)
     else:
@@ -102,6 +102,13 @@ def evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return
     total_fscore = 2 * np.sum(df.tp) / (2 * np.sum(df.tp) + np.sum(df.fp) + np.sum(df.fn))
     total_precision = np.sum(df.tp) / (np.sum(df.tp) + np.sum(df.fp))
     total_recall = np.sum(df.tp) / (np.sum(df.tp) + np.sum(df.fn))
+
+    # NOTE: for external root cause evaluation
+    tp_fp = df.external_rc.astype(np.float64).sum()
+    tp = (df.external_rc & (df.ext_dim_label.astype(str) != 'None')).astype(np.float64).sum()
+    exrc_precision = tp / tp_fp
+    exrc_accuracy = tp / (df.ext_dim_label.astype(str) != 'None').astype(np.float64).sum()
+
     df_total = pd.DataFrame.from_dict(
         {"tp": [np.sum(df.tp)],
          "fp": [np.sum(df.fp)],
@@ -109,6 +116,8 @@ def evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return
          "F1-Score": [total_fscore],
          "Precision": [total_precision],
          "Recall": [total_recall],
+         "exrc_precision": [exrc_precision],
+         "exrc_accuracy": [exrc_accuracy],
          'Time Cost (s)': [np.mean(df['elapsed_time'])],
          'time_std': [np.std(df['elapsed_time'])],
          'Total Time Cost (s)': [np.sum(df['elapsed_time'])],
@@ -121,7 +130,7 @@ def evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return
     if not output_path == "":
         df_total.to_csv(output_path, index=False)
     if verbose:
-        print(f"{total_fscore:.4f} {total_precision:.4f} {total_recall:.4f}")
+        print(f"{total_fscore:.4f} {total_precision:.4f} {total_recall:.4f} {exrc_precision:.4f} {exrc_accuracy:.4f}")
     if return_detail:
         return df
     return df_total
