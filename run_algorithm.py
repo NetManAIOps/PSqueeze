@@ -30,7 +30,7 @@ otherwise save to {output_path}")
 @click.option("--num-workers", default=1, help="num of processes")
 @click.option("--injection_info", default="", help="path to injection info")
 @click.option("--derived", is_flag=True, help="means we should read {timestamp}.a.csv and {timestamp}.b.csv")
-@click.option("--toint", is_flag=True, help="means we should read {timestamp}.a.csv and {timestamp}.b.csv")
+@click.option("--toint", is_flag=True, help="round measure values to integer")
 def main(name, input_path, output_path, num_workers, **kwargs):
     """
     :param name:
@@ -120,6 +120,7 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
         density_estimation_method="histogram_prob", 
         bias=1,
+        score_measure="ps", # NOTE: "ps" or "ji"
         # max_bins=100, # NOTE here
         **kwargs,
     )
@@ -127,6 +128,7 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
         psqueeze = False,
         debug=debug,
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
+        score_measure="ps", # NOTE: "ps" or "ji"
         # max_bins=100, # NOTE here
         # histogram_bar_width = 0.01,
         **kwargs,

@@ -262,13 +262,23 @@ class Squeeze:
             # _ds = _normal_descent_score * _abnormal_descent_score
             # succinct = partition + len(cuboid) * len(cuboid)
 
-            _v1, _v2 = data_p.real.values, data_n.real.values
-            _pv, _pf = np.sum(_v1), np.sum(data_p.predict.values)
-            _f1, _f2 = data_p.predict.values, data_n.predict.values
-            _a1, _a2 = data_p.predict.values * (_pv / _pf), data_n.predict.values
-            divide = lambda x, y: x / y if y > 0 else (0 if x == 0 else float('inf'))
-            _ps = 1 - (divide(dis_f(_v1, _a1), len(_v1)) + divide(dis_f(_v2, _f2), len(_v2))) \
-                  / (divide(dis_f(_v1, _f1), len(_v1)) + divide(dis_f(_v2, _f2), len(_v2)))
+            assert self.option.score_measure in ["ji", "ps"]
+
+            if self.option.score_measure == "ps":
+                _v1, _v2 = data_p.real.values, data_n.real.values
+                _pv, _pf = np.sum(_v1), np.sum(data_p.predict.values)
+                _f1, _f2 = data_p.predict.values, data_n.predict.values
+                _a1, _a2 = data_p.predict.values * (_pv / _pf), data_n.predict.values
+                divide = lambda x, y: x / y if y > 0 else (0 if x == 0 else float('inf'))
+                _ps = 1 - (divide(dis_f(_v1, _a1), len(_v1)) + divide(dis_f(_v2, _f2), len(_v2))) \
+                      / (divide(dis_f(_v1, _f1), len(_v1)) + divide(dis_f(_v2, _f2), len(_v2)))
+
+            if self.option.score_measure == "ji":
+                cluster_data = self.derived_data.iloc[indices]
+                data_p_in_cluster = pd.merge(cluster_data, data_p, how='inner')
+                ji = data_p_in_cluster.size / (cluster_data.size + data_p.size - data_p_in_cluster.size)
+                _ps = ji
+
             logger.debug(
                 f"partition:{partition} "
                 # f"log_ll:{log_ll} "

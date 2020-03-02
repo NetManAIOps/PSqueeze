@@ -38,6 +38,7 @@ class SqueezeOption:
         self.normal_deviation_std = 0.1
         self.score_weight = "auto"
         self.max_num_elements_single_cluster = 12
+        self.score_measure = "ps"
         self.ps_upper_bound = 0.90
 
         self.__dict__.update(kwargs)
