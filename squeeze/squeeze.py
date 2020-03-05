@@ -269,6 +269,13 @@ class Squeeze:
                 _pv, _pf = np.sum(_v1), np.sum(data_p.predict.values)
                 _f1, _f2 = data_p.predict.values, data_n.predict.values
                 _a1, _a2 = data_p.predict.values * (_pv / _pf), data_n.predict.values
+
+                if self.option.dis_norm:
+                    deno_1 = np.maximum(_v1, _f1).clip(1e-6)
+                    deno_2 = np.maximum(_v2, _f2).clip(1e-6)
+                    _v1, _f1, _a1 = _v1/deno_1, _f1/deno_1, _a1/deno_1
+                    _v2, _f2, _a2 = _v2/deno_2, _f2/deno_2, _a2/deno_2
+
                 divide = lambda x, y: x / y if y > 0 else (0 if x == 0 else float('inf'))
                 _ps = 1 - (divide(dis_f(_v1, _a1), len(_v1)) + divide(dis_f(_v2, _f2), len(_v2))) \
                       / (divide(dis_f(_v1, _f1), len(_v1)) + divide(dis_f(_v2, _f2), len(_v2)))

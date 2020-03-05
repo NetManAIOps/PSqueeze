@@ -39,6 +39,7 @@ class SqueezeOption:
         self.score_weight = "auto"
         self.max_num_elements_single_cluster = 12
         self.score_measure = "ps"
+        self.dis_norm = False
         self.ps_upper_bound = 0.90
 
         self.__dict__.update(kwargs)

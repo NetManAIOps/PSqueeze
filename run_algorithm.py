@@ -121,6 +121,7 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
         density_estimation_method="histogram_prob", 
         bias=1,
         score_measure="ps", # NOTE: "ps" or "ji"
+        dis_norm=True,
         # max_bins=100, # NOTE here
         **kwargs,
     )
@@ -129,6 +130,7 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
         debug=debug,
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
         score_measure="ps", # NOTE: "ps" or "ji"
+        dis_norm=True,
         # max_bins=100, # NOTE here
         # histogram_bar_width = 0.01,
         **kwargs,
