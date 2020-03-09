@@ -95,7 +95,7 @@ class DensityBased1dCluster(Cluster):
         extreme_min_indices = sorted(list(set(extreme_min_indices) - set(extreme_max_indices)))
         if extreme_max_indices.size > 1: # to reduce adjacent relmax
             extreme_max_indices = np.concatenate([
-                extreme_max_indices[0],
+                extreme_max_indices[[0]],
                 extreme_max_indices[1:][(extreme_max_indices[1:] - extreme_max_indices[:-1] != 1)]
             ])
 
