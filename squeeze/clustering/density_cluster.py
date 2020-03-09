@@ -85,12 +85,19 @@ class DensityBased1dCluster(Cluster):
 
         order = 1
         extreme_max_indices = argrelextrema(
-            density_array, comparator=lambda x, y: x > y,
+            density_array, comparator=lambda x, y: x >= y,
             axis=0, order=order, mode='wrap')[0]
         extreme_min_indices = argrelextrema(
             density_array, comparator=lambda x, y: x <= y,
             axis=0, order=order, mode='wrap')[0]
-        extreme_max_indices = list(filter(lambda x: density_array[x] > 0, extreme_max_indices))
+        extreme_max_indices = np.array(list(filter(lambda x: density_array[x] > 0, extreme_max_indices)))
+
+        extreme_min_indices = sorted(list(set(extreme_min_indices) - set(extreme_max_indices)))
+        if extreme_max_indices.size > 1: # to reduce adjacent relmax
+            extreme_max_indices = np.concatenate([
+                extreme_max_indices[0],
+                extreme_max_indices[1:][(extreme_max_indices[1:] - extreme_max_indices[:-1] != 1)]
+            ])
 
         cluster_list = []
         boundaries = np.asarray([float('-inf')] + [bins[index] for index in extreme_min_indices] + [float('+inf')])
