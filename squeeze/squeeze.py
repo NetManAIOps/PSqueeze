@@ -441,11 +441,21 @@ class Squeeze:
             num_sample = len(self._f)
             if self.option.psqueeze: # NOTE: for PSqueeze
                 num_sample = num_sample * 3
-            self.option.score_weight = - np.log(
-                len(self.cluster_list) *
-                sum(len(_) for _ in self.cluster_list) / num_sample) / np.log(
-                sum(len(_) for _ in self.attribute_values)) * sum(len(_) for _ in self.attribute_values)
-            logger.debug(f"auto score weight: {self.option.score_weight}")
+
+            n_cluster = len(self.cluster_list)
+            n_attr = sum(len(_) for _ in self.attribute_values)
+            cover_rate = sum(len(_) for _ in self.cluster_list) / num_sample
+
+            n_cluster_gain = np.log(n_cluster+1) / n_cluster if n_cluster > 0 else 1
+            cover_rate_gain = - np.log(min(max(cover_rate, 1e-9), 1-1e-9))
+            n_attr_gain = n_attr / np.log(n_attr+1) if n_attr > 0 else 1
+
+            self.option.score_weight = n_cluster_gain * cover_rate_gain * n_attr_gain
+
+            logger.debug(f"auto score weight: {self.option.score_weight} = {n_cluster_gain} * {cover_rate_gain} * {n_attr_gain}")
+            logger.debug(f"n_cluster: {n_cluster}")
+            logger.debug(f"n_attr: {n_attr}")
+            logger.debug(f"cover_rate: {cover_rate}")
             self.info_collect["score_weight"] = self.option.score_weight
         for indices in self.cluster_list:
             self._locate_in_cluster(indices)
