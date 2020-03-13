@@ -46,7 +46,7 @@ def evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return
                     item['root_cause'].replace('|', ';'),
                     attribute_names=config['columns']
                 )
-                pred = predict[idx]['pred'] = ret
+                pred = predict[idx]['pred'] = list(filter(lambda x: str(x), ret))
                 ex_rc_pred = predict[idx]['external_rc']
             except Exception as e:
                 print(item, e)
@@ -148,7 +148,7 @@ def evaluate_non_ex_rc(injection_info, predict, config, output_path, verbose, re
                     item['root_cause'].replace('|', ';'),
                     attribute_names=config['columns']
                 )
-                pred = predict[idx]['pred'] = ret
+                pred = predict[idx]['pred'] = list(filter(lambda x: str(x), ret))
             except Exception as e:
                 print(item, e)
                 continue
