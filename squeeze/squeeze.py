@@ -243,7 +243,7 @@ class Squeeze:
 
         logger.debug(f"elements: {';'.join(str(_) for _ in elements)}")
 
-        def _root_cause_score(partition: int) -> float:
+        def _root_cause_score(partition: int, sm='ps') -> float:
             dis_f = cityblock
             data_p, data_n = self.get_derived_dataframe(
                 frozenset(elements[:partition]), cuboid=cuboid,
@@ -262,29 +262,49 @@ class Squeeze:
             # _ds = _normal_descent_score * _abnormal_descent_score
             # succinct = partition + len(cuboid) * len(cuboid)
 
-            assert self.option.score_measure in ["ji", "ps"]
-
-            if self.option.score_measure == "ps":
+            def ps(se=lambda x: 1):
                 _v1, _v2 = data_p.real.values, data_n.real.values
                 _pv, _pf = np.sum(_v1), np.sum(data_p.predict.values)
                 _f1, _f2 = data_p.predict.values, data_n.predict.values
                 _a1, _a2 = data_p.predict.values * (_pv / _pf), data_n.predict.values
-
+                
                 if self.option.dis_norm:
                     deno_1 = np.maximum(_v1, _f1).clip(1e-6)
                     deno_2 = np.maximum(_v2, _f2).clip(1e-6)
-                    _v1, _f1, _a1 = _v1/deno_1, _f1/deno_1, _a1/deno_1
-                    _v2, _f2, _a2 = _v2/deno_2, _f2/deno_2, _a2/deno_2
+                    _v1, _a1, _f1 = _v1/deno_1, _a1/deno_1, _f1/deno_1
+                    _v2, _a2, _f2 = _v2/deno_2, _a2/deno_2, _f2/deno_2
 
                 divide = lambda x, y: x / y if y > 0 else (0 if x == 0 else float('inf'))
-                _ps = 1 - (divide(dis_f(_v1, _a1), len(_v1)) + divide(dis_f(_v2, _f2), len(_v2))) \
-                      / (divide(dis_f(_v1, _f1), len(_v1)) + divide(dis_f(_v2, _f2), len(_v2)))
+                return 1 - (divide(dis_f(_v1, _a1), len(_v1)) * se(_v1) + divide(dis_f(_v2, _f2), len(_v2)) * se(_v2)) \
+                      / (divide(dis_f(_v1, _f1), len(_v1)) * se(_v1) + divide(dis_f(_v2, _f2), len(_v2)) * se(_v2))
 
-            if self.option.score_measure == "ji":
+            def ji():
                 cluster_data = self.derived_data.iloc[indices]
                 data_p_in_cluster = pd.merge(cluster_data, data_p, how='inner')
-                ji = data_p_in_cluster.size / (cluster_data.size + data_p.size - data_p_in_cluster.size)
-                _ps = ji
+                return data_p_in_cluster.size / (cluster_data.size + data_p.size - data_p_in_cluster.size)
+
+            # ps, ji = ps(), ji()
+            # partition_gain = np.log(partition+1) / partition
+            # partition_gain = 1 / partition ** 2
+            # size_log = np.log(len(indices))
+            # size_gain = np.log(size_log+1) / size_log if size_log > 0 else 1
+            # size_gain = 1 / (size_log + 1)
+            # pjavg = (ji ** (size_gain*partition_gain)) * (ps ** (1-size_gain*partition_gain)) if ps > 0 else 0.
+            # pjavg = ji * (size_gain * partition_gain) + ps * (1 - size_gain * partition_gain)
+
+            if sm == 'auto':
+                return [
+                    ("ps", ps()),
+                    ("ji", ji()),
+                    ("pps", ps(lambda x: np.log(max(len(x), 1)))),
+                ]
+            elif sm == 'ps': _ps = ps()
+            elif sm == 'ji': _ps = ji()
+            elif sm == 'pjavg':
+                _ps = (ps() * ji()) ** 0.5 if ps() > 0 else 0
+            elif sm == 'pps':
+                _ps = ps(lambda x: np.log(max(len(x), 1)))
+            else: raise RuntimeError("bad score measure")
 
             logger.debug(
                 f"partition:{partition} "
@@ -294,10 +314,6 @@ class Squeeze:
                 f"ps: {_ps}"
             )
             # return _p * self.option.score_weight / (-succinct)
-
-            # if _ps > 0.9:
-            #     logger.info(data_n)
-            #     logger.info(data_p)
             return _ps
 
         partitions = np.arange(
@@ -309,7 +325,14 @@ class Squeeze:
         ) + 1
         if len(partitions) <= 0:
             return elements, float('-inf')
-        rc_scores = np.asarray(list(map(_root_cause_score, partitions)))
+
+        if self.option.score_measure == 'auto':
+            sm = sorted(_root_cause_score(1, 'auto'), key=lambda x:x[1])[-1][0]
+        else:
+            sm = self.option.score_measure
+
+        logger.debug(f"score measure: {sm}")
+        rc_scores = np.asarray(list(map(lambda x: _root_cause_score(x, sm=sm), partitions)))
         idx = np.argsort(rc_scores)[::-1]
         partitions = partitions[idx]
         rc_scores = rc_scores[idx]

@@ -62,7 +62,7 @@ def main(name, input_path, output_path, num_workers, **kwargs):
     if not injection_info: injection_info = input_path / name / 'injection_info.csv'
     injection_info = pd.read_csv(injection_info, engine='c')
     timestamps = sorted(injection_info['timestamp'])
-    # timestamps = ['1451118000'] # NOTE: for debug
+    # timestamps = ['1451188800'] # NOTE: for debug
     injection_info = injection_info.set_index(['timestamp'])
     if not dervied:
         results = Parallel(n_jobs=num_workers, backend="multiprocessing", verbose=100)(
@@ -120,7 +120,7 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
         density_estimation_method="histogram_prob", 
         bias=1,
-        score_measure="ps", # NOTE: "ps" or "ji"
+        score_measure="auto", # NOTE: "ps"  "ji" "pjavg" "pps" "auto"
         dis_norm=False,
         # max_bins=100, # NOTE here
         **kwargs,
