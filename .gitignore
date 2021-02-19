@@ -29,3 +29,4 @@ output/
 .venv/
 .*
 !.dockerignore
+/Psqueeze-dataset/

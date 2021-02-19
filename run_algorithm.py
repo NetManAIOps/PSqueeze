@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 import sys
 import time
 from pathlib import Path
@@ -13,6 +13,7 @@ from joblib import Parallel, delayed
 # noinspection PyProtectedMember
 from loguru._defaults import LOGURU_FORMAT
 
+from MID import MID
 from utility import AC, AttributeCombination
 from post_process import post_process
 from squeeze import Squeeze, SqueezeOption
@@ -20,15 +21,23 @@ import pandas as pd
 from loguru import logger
 
 import os
+import pandas as pd
 
 
 @click.command('Runner')
 @click.option("--name", default="", help="name of this setting")
-@click.option("--input-path", help="will read data from {input_path}/{name}")
-@click.option("--output-path", help="if {output_path} is a dir, save to {output_path}/{name}.json; \
+@click.option("--input-path", "-i", help="will read data from {input_path}/{name}")
+@click.option("--output-path", "-o", help="if {output_path} is a dir, save to {output_path}/{name}.json; \
 otherwise save to {output_path}")
-@click.option("--num-workers", default=1, help="num of processes")
-@click.option("--injection_info", default="", help="path to injection info")
+@click.option("--num-workers", "-j", default=1, help="num of processes")
+@click.option(
+    "--injection_info", default="",
+    help="path to injection info, if empty, {input_path}/{name}/injection_info.csv will be used"
+)
+@click.option(
+    "--algorithm", default="psqueeze", help="algorithm name",
+    type=click.Choice(["squeeze", "psqueeze", "mid"], case_sensitive=False)
+)
 @click.option("--derived", is_flag=True, help="means we should read {timestamp}.a.csv and {timestamp}.b.csv")
 @click.option("--toint", is_flag=True, help="round measure values to integer")
 def main(name, input_path, output_path, num_workers, **kwargs):
@@ -42,16 +51,14 @@ def main(name, input_path, output_path, num_workers, **kwargs):
     """
     logger.remove()
     logger.add(
-        sys.stdout, level="INFO",
+        sys.stdout, level="DEBUG",
         format="[<green>{time}</green>, <blue>{level}</blue>] <white>{message}</white>"
     )
-    dervied = kwargs.pop('derived')
-    injection_info = kwargs.pop('injection_info')
-
     input_path = Path(input_path)
     assert input_path.exists(), f"{input_path} does not exist"
-    output_path = Path(output_path)
     logger.info(f"read data from {input_path / name}")
+
+    output_path = Path(output_path)
     if output_path.is_dir():
         output_path = output_path / f"{name}.json"
     elif not output_path.exists():
@@ -59,12 +66,17 @@ def main(name, input_path, output_path, num_workers, **kwargs):
         output_path.mkdir()
         output_path = output_path / f"{name}.json"
     logger.info(f"save to {output_path}")
-    if not injection_info: injection_info = input_path / name / 'injection_info.csv'
-    injection_info = pd.read_csv(injection_info, engine='c')
+
+    injection_info: str = kwargs.pop('injection_info')
+    if not injection_info:
+        injection_info = str(input_path / name / "injection_info.csv")
+    injection_info: pd.DataFrame = pd.read_csv(injection_info, engine='c')
     timestamps = sorted(injection_info['timestamp'])
     # timestamps = ['1451188800'] # NOTE: for debug
-    injection_info = injection_info.set_index(['timestamp'])
-    if not dervied:
+    injection_info: pd.DataFrame = injection_info.set_index(['timestamp'])
+
+    derived: bool = kwargs.pop('derived')
+    if not derived:
         results = Parallel(n_jobs=num_workers, backend="multiprocessing", verbose=100)(
             delayed(executor)(file_path, output_path.parent, injection_info, **kwargs)
             for file_path in map(lambda x: input_path / name / f'{x}.csv', timestamps))
@@ -79,7 +91,7 @@ def main(name, input_path, output_path, num_workers, **kwargs):
     post_process(results)
     with open(str(output_path.resolve()), "w+") as f:
         json.dump(results, f, indent=4)
-    logger.info(results)
+    logger.info(json.dumps(results, indent=4))
 
 
 def load_data(file_path: Path, injection_info, toint=False):
@@ -96,12 +108,13 @@ def load_data(file_path: Path, injection_info, toint=False):
     return df
 
 
-def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Dict:
+def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, **kwargs) -> Dict:
     debug = kwargs.pop('debug', False)
     toint = kwargs.pop('toint', False)
+    algorithm = kwargs.pop("algorithm", "psqueeze")
     logger.remove()
     logger.add(
-        sys.stdout, level='DEBUG',
+        sys.stdout, level='INFO',
         format=f"<yellow>{file_path.name}</yellow> - {LOGURU_FORMAT}",
         backtrace=True
     )
@@ -115,32 +128,43 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
     tic = time.time()
 
     psqueezeOption = SqueezeOption(
-        psqueeze = True,
+        psqueeze=True,
         debug=debug,
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
-        density_estimation_method="histogram_prob", 
+        density_estimation_method="histogram_prob",
         bias=1,
-        score_measure="auto", # NOTE: "ps"  "ji" "pjavg" "pps" "auto"
+        score_measure="auto",  # NOTE: "ps"  "ji" "pjavg" "pps" "auto"
         dis_norm=False,
         # max_bins=100, # NOTE here
         **kwargs,
     )
     squeezeOption = SqueezeOption(
-        psqueeze = False,
+        psqueeze=False,
         debug=debug,
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
-        score_measure="ps", # NOTE: "ps" or "ji"
+        score_measure="ps",  # NOTE: "ps" or "ji"
         dis_norm=False,
         # max_bins=100, # NOTE here
         # histogram_bar_width = 0.01,
         **kwargs,
     )
 
-    model = Squeeze(
-        data_list=[df],
-        op=lambda x: x,
-        option=psqueezeOption,
-    )
+    if algorithm == "psqueeze":
+        model = Squeeze(
+            data_list=[df],
+            op=lambda x: x,
+            option=psqueezeOption,
+        )
+    elif algorithm == "squeeze":
+        model = Squeeze(
+            data_list=[df],
+            op=lambda x: x,
+            option=squeezeOption,
+        )
+    elif algorithm == "mid":
+        model = MID(data_list=[df], **kwargs)
+    else:
+        raise RuntimeError(f"unknown algorithm name: {algorithm=}")
     model.run()
 
     logger.info("\n" + model.report)
@@ -158,11 +182,16 @@ def executor(file_path: Path, output_path: Path, injection_info, **kwargs) -> Di
         'timestamp': timestamp,
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
-        'ep': ep, 
+        'ep': ep,
+        'ground_truth': str(AC.from_string(
+            injection_info.loc[int(file_path.stem), 'set'],
+            attribute_names=model.attribute_names,
+        )),
         'info_collect': model.info_collect,
     }
 
     return result
+
 
 def executor_derived(file_path_list: List[Path], output_path: Path, **kwargs) -> Dict:
     debug = kwargs.pop('debug', False)
@@ -192,16 +221,16 @@ def executor_derived(file_path_list: List[Path], output_path: Path, **kwargs) ->
 
     divide = lambda x, y: np.divide(x, y, out=np.zeros_like(x), where=y != 0)
     psqueezeOption = SqueezeOption(
-        psqueeze = True,
+        psqueeze=True,
         debug=debug,
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
-        density_estimation_method="histogram_prob", 
+        density_estimation_method="histogram_prob",
         # max_bins=100,
         enable_filter=True,
         **kwargs,
     )
     squeezeOption = SqueezeOption(
-        psqueeze = False,
+        psqueeze=False,
         debug=debug,
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
         enable_filter=True,
@@ -230,15 +259,17 @@ def executor_derived(file_path_list: List[Path], output_path: Path, **kwargs) ->
         'external_rc': False,
     }
 
+
 def explanatory_power(df, rc_str):
     if not rc_str: return 0.0
     delta = df["real"].values.sum() - df["predict"].values.sum()
     rc_list = [dict(map(lambda x: x.split("="), i.split("&"))) for i in rc_str.split(";")]
     cover = df.loc[np.logical_or.reduce([
-        np.logical_and.reduce([df[k] == v for k,v in i.items()])
+        np.logical_and.reduce([df[k] == v for k, v in i.items()])
         for i in rc_list
     ])]
     return (cover["real"].values.sum() - cover["predict"].values.sum()) / delta
+
 
 if __name__ == '__main__':
     main()

@@ -15,9 +15,9 @@ class AttributeCombination(dict):
         self.non_any_keys = tuple()
         self.non_any_values = tuple()
         self.__is_terminal = False
-        self.__update()
+        self._update()
 
-    def __update(self):
+    def _update(self):
         self.__id = tuple((key, self[key]) for key in sorted(self.keys()))
         self.non_any_keys = tuple(_ for _ in sorted(self.keys()) if self[_] != self.ANY)
         self.non_any_values = tuple(self[_] for _ in sorted(self.keys()) if self[_] != self.ANY)
@@ -37,7 +37,7 @@ class AttributeCombination(dict):
 
     def __setitem__(self, key, value):
         super().__setitem__(key, str(value))
-        self.__update()
+        self._update()
 
     def __str__(self):
         return "&".join(f"{key}={value}" for key, value in zip(self.non_any_keys, self.non_any_values))
@@ -63,7 +63,7 @@ class AttributeCombination(dict):
     def copy_and_update(self, other):
         o = copy.copy(self)
         o.update(other)
-        o.__update()
+        o._update()
         return o
 
     @staticmethod
@@ -149,6 +149,27 @@ class AttributeCombination(dict):
     @staticmethod
     def to_iops_2019_format(attribute_combinations: Iterable['AttributeCombination']):
         return ";".join("&".join(_.non_any_values) for _ in attribute_combinations)
+
+    def add(self, attribute, value) -> 'AttributeCombination':
+        ret = AttributeCombination(**self)
+        ret[attribute] = value
+        ret._update()
+        return ret
+
+    def delete(self, attribute) -> 'AttributeCombination':
+        ret = AttributeCombination(**self)
+        ret[attribute] = self.ANY
+        ret._update()
+        return ret
+
+    def swap(
+            self, attribute_old, attribute_new, value_new
+    ) -> 'AttributeCombination':
+        ret = AttributeCombination(**self)
+        ret[attribute_old] = self.ANY
+        ret[attribute_new] = value_new
+        ret._update()
+        return ret
 
 
 AC = AttributeCombination
