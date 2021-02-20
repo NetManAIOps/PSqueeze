@@ -235,13 +235,7 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
     )
 
     algorithm = kwargs.pop("algorithm", "psqueeze")
-    if algorithm == "psqueeze":
-        model = Squeeze(
-            data_list=[dfa, dfb],
-            op=divide,
-            option=psqueezeOption,
-        )
-    elif algorithm == "squeeze":
+    if algorithm == "psqueeze" or algorithm == 'squeeze':
         model = Squeeze(
             data_list=[dfa, dfb],
             op=divide,

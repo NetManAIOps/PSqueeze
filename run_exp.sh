@@ -36,5 +36,11 @@ run_setting() {
 }
 
 
-echo_and_run run_setting D 1 1 squeeze
+for dataset in A B5 B6 B7 B8 D; do
+  for n_ele in 1 2 3; do
+    for cuboid_layer in 1 2 3; do
+      echo run_setting ${dataset} ${n_ele} ${cuboid_layer} mid
+    done
+  done
+done
 #run_setting D 1 1 mid
