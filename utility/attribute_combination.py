@@ -48,7 +48,11 @@ class AttributeCombination(dict):
         for pair in string.split("&"):
             if pair == "":
                 continue
-            key, value = pair.split("=")
+            try:
+                key, value = pair.split("=")
+            except Exception as e:
+                print(pair, string)
+                raise e
             ret[key] = value
         return ret
 

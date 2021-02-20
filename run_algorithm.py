@@ -63,7 +63,7 @@ def main(name, input_path, output_path, num_workers, **kwargs):
         output_path = output_path / f"{name}.json"
     elif not output_path.exists():
         logger.info(f"create {output_path}")
-        output_path.mkdir()
+        output_path.mkdir(parents=True)
         output_path = output_path / f"{name}.json"
     logger.info(f"save to {output_path}")
 
@@ -82,7 +82,7 @@ def main(name, input_path, output_path, num_workers, **kwargs):
             for file_path in map(lambda x: input_path / name / f'{x}.csv', timestamps))
     else:
         results = Parallel(n_jobs=num_workers, backend="multiprocessing", verbose=100)(
-            delayed(executor_derived)(file_path_list, output_path.parent, **kwargs)
+            delayed(executor_derived)(file_path_list, output_path.parent, injection_info, **kwargs)
             for file_path_list in map(
                 lambda x: [input_path / name / f'{x}.a.csv', input_path / name / f'{x}.b.csv'],
                 timestamps
@@ -183,17 +183,14 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
         'ep': ep,
-        'ground_truth': str(AC.from_string(
-            injection_info.loc[int(file_path.stem), 'set'],
-            attribute_names=model.attribute_names,
-        )),
+        'ground_truth': injection_info.loc[int(file_path.stem), 'set'],
         'info_collect': model.info_collect,
     }
 
     return result
 
 
-def executor_derived(file_path_list: List[Path], output_path: Path, **kwargs) -> Dict:
+def executor_derived(file_path_list: List[Path], output_path: Path, injection_info: pd.DataFrame, **kwargs) -> Dict:
     debug = kwargs.pop('debug', False)
     logger.remove()
     ts = file_path_list[0].name.rstrip('.a.csv')
@@ -237,11 +234,23 @@ def executor_derived(file_path_list: List[Path], output_path: Path, **kwargs) ->
         **kwargs,
     )
 
-    model = Squeeze(
-        data_list=[dfa, dfb],
-        op=divide,
-        option=squeezeOption
-    )
+    algorithm = kwargs.pop("algorithm", "psqueeze")
+    if algorithm == "psqueeze":
+        model = Squeeze(
+            data_list=[dfa, dfb],
+            op=divide,
+            option=psqueezeOption,
+        )
+    elif algorithm == "squeeze":
+        model = Squeeze(
+            data_list=[dfa, dfb],
+            op=divide,
+            option=squeezeOption,
+        )
+    elif algorithm == "mid":
+        model = MID(data_list=[dfa, dfb], op=divide, **kwargs)
+    else:
+        raise RuntimeError(f"unknown algorithm name: {algorithm=}")
     model.run()
     logger.info("\n" + model.report)
     try:
@@ -252,12 +261,16 @@ def executor_derived(file_path_list: List[Path], output_path: Path, **kwargs) ->
 
     toc = time.time()
     elapsed_time = toc - tic
-    return {
+    ep = explanatory_power(model.derived_data, root_cause)
+    result = {
         'timestamp': timestamp,
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
-        'external_rc': False,
+        'ep': ep,
+        'ground_truth': injection_info.loc[int(timestamp), 'set'],
+        'info_collect': model.info_collect,
     }
+    return result
 
 
 def explanatory_power(df, rc_str):

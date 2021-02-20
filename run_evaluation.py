@@ -3,6 +3,8 @@
 import click
 import pandas as pd
 import json
+
+from squeeze import Squeeze
 from utility import AttributeCombination as AC
 import numpy as np
 import os
@@ -24,11 +26,17 @@ import os
 @click.option(
     "--verbose", '-v', default=False, is_flag=True,
 )
+@click.option(
+    "--derived", default=False, is_flag=True,
+)
 def main(*args, **kwargs):
     evaluate(*args, **kwargs)
 
 
-def evaluate(injection_info, predict, config, output_path, groundtruth_dir, verbose=True, return_detail=False):
+def evaluate(
+        injection_info, predict, config, output_path, groundtruth_dir,
+        verbose=True, return_detail=False, derived=False
+):
     injection_info: pd.DataFrame = pd.read_csv(injection_info)
     with open(predict, 'r') as f:
         predict = json.load(f)
@@ -36,12 +44,25 @@ def evaluate(injection_info, predict, config, output_path, groundtruth_dir, verb
         config = json.load(f)
     injection_info = injection_info.set_index(['timestamp']).sort_values(by="timestamp")
     if "ex_rc_dim" in injection_info.columns:
-        evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return_detail, groundtruth_dir)
+        evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return_detail, groundtruth_dir, derived)
     else:
-        evaluate_non_ex_rc(injection_info, predict, config, output_path, verbose, return_detail, groundtruth_dir)
+        evaluate_non_ex_rc(injection_info, predict, config, output_path, verbose, return_detail, groundtruth_dir, derived)
 
 
-def evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return_detail, gt_dir):
+def load_original_data(gt_dir, timestamp, derived):
+    if not derived:
+        path = os.path.join(gt_dir, f"{timestamp}.csv")
+        df = pd.read_csv(path)
+    else:
+        dfa = pd.read_csv(os.path.join(gt_dir, f"{timestamp}.a.csv"))
+        dfb = pd.read_csv(os.path.join(gt_dir, f"{timestamp}.b.csv"))
+        divide = lambda x, y: np.divide(x, y, out=np.zeros_like(x), where=y != 0)
+        model = Squeeze(data_list=[dfa, dfb], op=divide)
+        df = model.derived_data
+    return df
+
+
+def evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return_detail, gt_dir, derived):
     for idx, item in enumerate(predict):
         try:
             rc_gt, ex_rc_label = injection_info.loc[int(item['timestamp']), ['set', 'ex_rc_dim']]
@@ -70,9 +91,8 @@ def evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return
                 if ex_rc_pred:
                     _fn, _tp = 0, 1
                 else:
-                    path = os.path.join(gt_dir, f"{item['timestamp']}.csv")
-                    df = pd.read_csv(path)
-                    ji = get_jaccard_index(df, pred, label)
+                    original_df = load_original_data(gt_dir=gt_dir, timestamp=item['timestamp'], derived=derived)
+                    ji = get_jaccard_index(original_df, pred, label)
                     predict[idx]["ji"] = ji
                     if ji > 0.8:
                         _fn, _tp = 0, 1
@@ -150,7 +170,7 @@ def evaluate_ex_rc(injection_info, predict, config, output_path, verbose, return
     return df_total
 
 
-def evaluate_non_ex_rc(injection_info, predict, config, output_path, verbose, return_detail, gt_dir):
+def evaluate_non_ex_rc(injection_info, predict, config, output_path, verbose, return_detail, gt_dir, derived):
     for idx, item in enumerate(predict):
         try:
             label = predict[idx]['label'] = AC.batch_from_string(
@@ -177,13 +197,17 @@ def evaluate_non_ex_rc(injection_info, predict, config, output_path, verbose, re
         except KeyError:
             continue
         path = os.path.join(gt_dir, f"{item['timestamp']}.csv")
-        df: pd.DataFrame = pd.read_csv(path)  # original data
         predict[idx]['tp'] = _tp
         predict[idx]['fp'] = _fp
         predict[idx]['fn'] = _fn
         predict[idx]['cuboid_layer'] = len(list(label)[0].non_any_values)
         predict[idx]['num_elements'] = len(label)
-        predict[idx]['significance'] = abs(df['real'].sum() - df['predict'].sum()) / df['predict'].sum()
+        original_df: pd.DataFrame = load_original_data(
+            gt_dir=gt_dir, timestamp=item['timestamp'], derived=derived
+        )  # original data
+        predict[idx]['significance'] = abs(
+            original_df['real'].sum() - original_df['predict'].sum()
+        ) / original_df['predict'].sum()
         if verbose:
             print("========================================")
             print(f"timestamp:{item['timestamp']}")

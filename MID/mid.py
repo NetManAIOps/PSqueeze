@@ -3,7 +3,7 @@ import time
 from itertools import product
 
 import numpy as np
-from typing import List, Callable, FrozenSet, Set, Dict
+from typing import List, Callable, FrozenSet, Set, Dict, Optional
 import pandas as pd
 from loguru import logger
 from utility import AC
@@ -17,8 +17,8 @@ class MID:
             self, data_list: List[pd.DataFrame], op=lambda x: x,
             p: float = 0.2,
             d: float = 0.5,
-            max_seconds: float = 60,
-            max_iterations: int = 1000,
+            max_seconds: Optional[float] = 60,
+            max_iterations: Optional[int] = 1e3,
     ):
         """
         :param data_list:
@@ -53,19 +53,26 @@ class MID:
         self.__finished = False
 
     def run(self):
+        def terminable() -> bool:
+            if self.max_seconds is not None and (time.time() - tic) > self.max_seconds:
+                return True
+            if self.max_iterations is not None and iter_cnt > self.max_iterations:
+                return True
+            if unchanged_cnt > 10:
+                return True
+            return False
         if self.__finished:
             logger.warning(f"try to rerun {self}")
             return self
         c = AC(**{a: AC.ANY for a in self.attribute_names})
-        ec: List[AC] = []
+        ec: Set[AC] = set()
         min_score = float('inf')
         forbidden: Set[AC] = set()
         unchanged_cnt = 0
         iter_cnt = 0
         tic = time.time()
-        while (time.time() - tic) < self.max_seconds \
-                and unchanged_cnt < 3 \
-                and iter_cnt < self.max_iterations:
+        while not terminable():
+            logger.debug(f"{c=}")
             # logger.debug(
             #     f"{c=} {unchanged_cnt=} {iter_cnt=} {elapsed_time=}"
             # )
@@ -73,7 +80,7 @@ class MID:
             forbidden.add(c)
             if len(ec) == 0 or self.objective_function(c) > min_score:
                 min_score = min(self.objective_function(c), min_score)
-                ec.append(c)
+                ec.add(c)
             if random.random() < self.p:
                 logger.debug("in random mode")
                 new_c = self.random_update(c)
@@ -82,14 +89,15 @@ class MID:
                 new_c = self.greedy_update(c, forbidden=forbidden)
             if c == new_c:
                 unchanged_cnt += 1
+                logger.debug("unchanged")
             else:
                 unchanged_cnt = 0
             iter_cnt += 1
             c = new_c
+        ec: List[AC] = sorted(list(ec), key=lambda _: self.objective_function(_), reverse=True)[:10]
         logger.info(f"get EC: {ec[:10]}...")
         logger.info(f"calculating distance")
         distances = np.zeros((len(ec), len(ec)), dtype=float)
-        ec = sorted(ec, key=lambda _: self.objective_function(_), reverse=True)[:10]
         for i in range(len(ec)):
             for j in range(i):
                 distances[i, j] = self.ac_distance(ec[i], ec[j])
@@ -179,9 +187,12 @@ class MID:
             ops = ['swap_value', 'delete']
         elif len(c.non_any_keys) == 0:
             ops = ['add']
+        elif len(c.non_any_keys) > 1:
+            ops = ['add', 'swap_value', "swap_tuple", 'delete']
         else:
-            ops = ['add', 'swap_value', 'delete']
+            ops = ['add', 'swap_value', "swap_tuple"]
         op = random.choice(ops)
+        logger.debug(f"{op=} {ops=}")
         return op
 
     def random_update(self, c: AC) -> AC:
@@ -261,10 +272,10 @@ class MID:
                 for a_new, v_new in self.max_entropy_tuples(sum([
                     [(_a, _v) for _v in self.attribute_values[_a]]
                     for _a in list(set(self.attribute_names) - {a_old})
-                ])):
+                ], [])):
                     ret = c.swap(a_old, a_new, v_new)
                     if ret not in forbidden:
-                        logger.debug(f"swap tuple ({a_old}, _) to ({a_new}={v})")
+                        logger.debug(f"swap tuple ({a_old}, _) to ({a_new}={v_new})")
                         return ret
                     else:
                         # logger.debug(f"skip swap tuple ({a_old}, _) to ({a_new}={v_new}) since {ret} in forbidden")
@@ -279,14 +290,8 @@ class MID:
                     ], [])
             ):
                 ret = c.delete(a)
-                if ret not in forbidden:
-                    logger.debug(f"delete ({a}, _)")
-                    return ret
-                else:
-                    # logger.debug(f"skip delete ({a}, _) since {ret} in forbidden")
-                    pass
-            else:
-                return c
+                logger.debug(f"delete ({a}, _)")
+                return ret
         else:
             raise RuntimeError(f"unknown op: {op}")
 
@@ -325,7 +330,10 @@ class MID:
         idx = self.get_index_by_ac(ac)
         pa = self._derived_data.loc[idx, 'real'].sum() / self._derived_data['real'].sum() + 1e-4
         pb = self._derived_data.loc[idx, 'predict'].sum() / self._derived_data['predict'].sum() + 1e-4
-        return pa * np.log(pa / pb)
+        p = self._derived_data.loc[idx, 'diff'].sum() / self._derived_data['diff'].sum() + 1e-4
+        # p = abs((self._derived_data.loc[idx, 'real'].sum() - self._derived_data.loc[idx, 'predict'].sum())
+        #         / (self._derived_data['real'].sum() - self._derived_data['predict'].sum()))
+        return np.abs(p * np.log(pa / pb))
 
     @lru_cache
     def tuple_entropy(self, attribute, value):
