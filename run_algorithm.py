@@ -191,6 +191,7 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
 
 
 def executor_derived(file_path_list: List[Path], output_path: Path, injection_info: pd.DataFrame, **kwargs) -> Dict:
+    toint = kwargs.pop('toint', False)
     debug = kwargs.pop('debug', False)
     logger.remove()
     ts = file_path_list[0].name.rstrip('.a.csv')
@@ -200,12 +201,8 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
         backtrace=True
     )
     logger.info(f"running squeeze for {ts}")
-    dfa = pd.read_csv(file_path_list[0].resolve(), engine='python', dtype='str', delimiter=r"\s*,\s*")
-    dfa['real'] = dfa['real'].astype(float)
-    dfa['predict'] = dfa['predict'].astype(float)
-    dfb = pd.read_csv(file_path_list[1].resolve(), engine='python', dtype='str', delimiter=r"\s*,\s*")
-    dfb['real'] = dfb['real'].astype(float)
-    dfb['predict'] = dfb['predict'].astype(float)
+    dfa = load_data(file_path_list[0].resolve(), injection_info, toint=toint)
+    dfb = load_data(file_path_list[1].resolve(), injection_info, toint=toint)
     zero_index = (dfa.real == 0) & (dfa.predict == 0) & (dfb.real == 0) & (dfb.predict == 0)
     dfa = dfa[~zero_index]
     dfb = dfb[~zero_index]
@@ -221,9 +218,10 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
         psqueeze=True,
         debug=debug,
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
-        density_estimation_method="histogram_prob",
+        density_estimation_method='histogram_prob',
         # max_bins=100,
         enable_filter=True,
+        bias=0,
         **kwargs,
     )
     squeezeOption = SqueezeOption(
@@ -235,7 +233,13 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
     )
 
     algorithm = kwargs.pop("algorithm", "psqueeze")
-    if algorithm == "psqueeze" or algorithm == 'squeeze':
+    if algorithm == "psqueeze":
+        model = Squeeze(
+            data_list=[dfa, dfb],
+            op=divide,
+            option=psqueezeOption,
+        )
+    elif algorithm == 'squeeze':
         model = Squeeze(
             data_list=[dfa, dfb],
             op=divide,
