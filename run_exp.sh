@@ -10,6 +10,7 @@ run_setting() {
   LAYER=${3:-1}
   ALGORITHM=${4:psqueeze}
   DERIVED=""
+  JOBS=18
   if [[ $DATASET == A* ]]; then
     NAME=A_week_12_cuboid_layer_${LAYER}_n_ele_${N_ELE}
   elif [[ $DATASET == B* ]]; then
@@ -24,7 +25,7 @@ run_setting() {
     --output-path output/${ALGORITHM}/${DATASET} \
     --algorithm ${ALGORITHM} \
     ${DERIVED} \
-    -j 8
+    -j ${JOBS}
   echo_and_run python run_evaluation.py \
     -i ${DATA_ROOT}/${DATASET}/${NAME}/injection_info.csv \
     -p output/${ALGORITHM}/${DATASET}/${NAME}.json \
@@ -43,4 +44,4 @@ run_setting() {
 #    done
 #  done
 #done
-run_setting D 3 1 psqueeze
+run_setting D 2 2 squeeze

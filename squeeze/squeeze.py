@@ -32,7 +32,7 @@ class Squeeze:
             "layers": [],
         }
 
-        self.one_dim_cluster = cluster_factory(self.option) # DensityBased1dCluster(option)
+        self.one_dim_cluster = cluster_factory(self.option)  # DensityBased1dCluster(option)
         self.cluster_list = []  # type: List[np.ndarray]
 
         valid_idx = np.logical_and.reduce(
@@ -140,25 +140,27 @@ class Squeeze:
                 )
                 cluster_list = list(
                     [np.array([
-                            kpi_filter.inverse_map((_/3).astype(int)),
-                            _%3
-                        ]).T
-                    for _ in cluster_list] # NOTE: for PSqueeze, each cluster is np.ndarray([[index, bias]...])
+                        kpi_filter.inverse_map((_ / 3).astype(int)),
+                        _ % 3
+                    ]).T
+                     for _ in cluster_list]  # NOTE: for PSqueeze, each cluster is np.ndarray([[index, bias]...])
                 )
                 cluster_list = list(
                     [np.array(list(
-                        filter(lambda x: 
-                            np.min(self.choose_from_2darray(self.leaf_deviation_score_with_variance, _[:, 0], _[:, 1]))
-                                <= self.leaf_deviation_score_with_variance[int(x/3), x%3] <=
-                            np.max(self.choose_from_2darray(self.leaf_deviation_score_with_variance, _[:, 0], _[:, 1])),
-                        np.arange(len(self.leaf_deviation_score_with_variance.flatten())))
+                        filter(lambda x:
+                               np.min(
+                                   self.choose_from_2darray(self.leaf_deviation_score_with_variance, _[:, 0], _[:, 1]))
+                               <= self.leaf_deviation_score_with_variance[int(x / 3), x % 3] <=
+                               np.max(
+                                   self.choose_from_2darray(self.leaf_deviation_score_with_variance, _[:, 0], _[:, 1])),
+                               np.arange(len(self.leaf_deviation_score_with_variance.flatten())))
                     ))
                         for _ in cluster_list]
                 )
                 # NOTE: for PSqueeze: each cluster is np.ndarray([[index, bias]...])
                 cluster_list = list([
-                    np.array([(_/3).astype(int), _%3]).T
-                for _ in cluster_list])
+                    np.array([(_ / 3).astype(int), _ % 3]).T
+                    for _ in cluster_list])
             else:
                 cluster_list, plot_kwargs = self.one_dim_cluster(self.leaf_deviation_score[self.filtered_indices])
                 cluster_list = list([kpi_filter.inverse_map(_) for _ in cluster_list])
@@ -196,11 +198,14 @@ class Squeeze:
         :return: root causes and their score
         """
         variance_map = {}
+
         def array2map(x):
-            if x[0] in variance_map: variance_map[x[0]].append(x[1])
-            else: variance_map[x[0]] = [x[1]]
-        
-        if type(indices) == np.ndarray: # NOTE: for PSqueeze
+            if x[0] in variance_map:
+                variance_map[x[0]].append(x[1])
+            else:
+                variance_map[x[0]] = [x[1]]
+
+        if type(indices) == np.ndarray:  # NOTE: for PSqueeze
             np.apply_along_axis(func1d=array2map, arr=indices, axis=1)
             indices = np.unique(indices[:, 0]).tolist()
         # assert len(self.data_list) == 1
@@ -210,15 +215,17 @@ class Squeeze:
 
         abnormal_cuboid_ac_arr = self.get_cuboid_ac_array(cuboid)[indices]
 
-        if variance_map: # NOTE: for PSqueeze
+        if variance_map:  # NOTE: for PSqueeze
             elements_count = {}
             for i in range(len(indices)):
                 idx = indices[i]
                 ele = abnormal_cuboid_ac_arr[i]
                 # weight = self.leaf_deviation_weights_with_variance[idx][variance_map[idx]].max() # NOTE: max or sum?
                 weight = np.sum(self.leaf_deviation_weights_with_variance[idx][variance_map[idx]])
-                if ele in elements_count: elements_count[ele] += weight
-                else: elements_count[ele] = weight
+                if ele in elements_count:
+                    elements_count[ele] += weight
+                else:
+                    elements_count[ele] = weight
             elements = np.array(list(elements_count.keys()))
             num_elements = np.array(list(elements_count.values()))
             del elements_count
@@ -253,6 +260,7 @@ class Squeeze:
             # logger.info(data_n.shape)
             assert len(data_p) + len(data_n) == len(indices) + len(self.normal_indices), \
                 f'{len(data_n)} {len(data_p)} {len(indices)} {len(self.normal_indices)}'
+
             # dp = self.__deviation_score(data_p['real'].values, data_p['predict'].values)
             # dn = self.__deviation_score(data_n['real'].values, data_n['predict'].values) if len(data_n) else []
             # log_ll = np.mean(norm.pdf(dp, loc=mu, scale=sigma)) \
@@ -267,16 +275,16 @@ class Squeeze:
                 _pv, _pf = np.sum(_v1), np.sum(data_p.predict.values)
                 _f1, _f2 = data_p.predict.values, data_n.predict.values
                 _a1, _a2 = data_p.predict.values * (_pv / _pf), data_n.predict.values
-                
+
                 if self.option.dis_norm:
                     deno_1 = np.maximum(_v1, _f1).clip(1e-6)
                     deno_2 = np.maximum(_v2, _f2).clip(1e-6)
-                    _v1, _a1, _f1 = _v1/deno_1, _a1/deno_1, _f1/deno_1
-                    _v2, _a2, _f2 = _v2/deno_2, _a2/deno_2, _f2/deno_2
+                    _v1, _a1, _f1 = _v1 / deno_1, _a1 / deno_1, _f1 / deno_1
+                    _v2, _a2, _f2 = _v2 / deno_2, _a2 / deno_2, _f2 / deno_2
 
                 divide = lambda x, y: x / y if y > 0 else (0 if x == 0 else float('inf'))
                 return 1 - (divide(dis_f(_v1, _a1), len(_v1)) * se(_v1) + divide(dis_f(_v2, _f2), len(_v2)) * se(_v2)) \
-                      / (divide(dis_f(_v1, _f1), len(_v1)) * se(_v1) + divide(dis_f(_v2, _f2), len(_v2)) * se(_v2))
+                       / (divide(dis_f(_v1, _f1), len(_v1)) * se(_v1) + divide(dis_f(_v2, _f2), len(_v2)) * se(_v2))
 
             def ji():
                 cluster_data = self.derived_data.iloc[indices]
@@ -298,13 +306,16 @@ class Squeeze:
                     ("ji", ji()),
                     ("pps", ps(lambda x: np.log(max(len(x), 1)))),
                 ]
-            elif sm == 'ps': _ps = ps()
-            elif sm == 'ji': _ps = ji()
+            elif sm == 'ps':
+                _ps = ps()
+            elif sm == 'ji':
+                _ps = ji()
             elif sm == 'pjavg':
                 _ps = (ps() * ji()) ** 0.5 if ps() > 0 else 0
             elif sm == 'pps':
                 _ps = ps(lambda x: np.log(max(len(x), 1)))
-            else: raise RuntimeError("bad score measure")
+            else:
+                raise RuntimeError("bad score measure")
 
             logger.debug(
                 f"partition:{partition} "
@@ -327,7 +338,7 @@ class Squeeze:
             return elements, float('-inf')
 
         if self.option.score_measure == 'auto':
-            sm = sorted(_root_cause_score(1, 'auto'), key=lambda x:x[1])[-1][0]
+            sm = sorted(_root_cause_score(1, 'auto'), key=lambda x: x[1])[-1][0]
         else:
             sm = self.option.score_measure
 
@@ -347,14 +358,14 @@ class Squeeze:
         :param indices:  indices of leaf nodes in this cluster (list or np.ndarray)
         :return: None
         """
-        if self.option.psqueeze: # NOTE: for PSqueeze
+        if self.option.psqueeze:  # NOTE: for PSqueeze
             non_variance = indices[np.where(indices[:, 1] == 1)[0]]
             # too many variance data
             if non_variance.shape[0] * self.option.non_var_split_ratio < indices.shape[0]:
                 logger.info(f"too many variance data, {non_variance.shape[0]} in {indices.shape[0]}")
                 if non_variance.size == 0:
                     logger.info("no non-variance cluster")
-                    return 
+                    return
                 indices = non_variance
             del non_variance
 
@@ -387,15 +398,24 @@ class Squeeze:
             ret_lists = []
             for cuboid_layer in np.arange(max_cuboid_layer) + 1:
                 layer_ret_lists = list(map(
-                    lambda x, _i=indices, _mu=mu, _sigma=sigma: self._locate_in_cuboid(x, indices=_i, mu=_mu, sigma=_sigma),
+                    lambda x, _i=indices, _mu=mu, _sigma=sigma: self._locate_in_cuboid(x, indices=_i, mu=_mu,
+                                                                                       sigma=_sigma),
                     combinations(self.attribute_names, cuboid_layer)
                 ))
-                ret_lists.extend([
-                    {
-                        'rc': x[0], 'score': x[1], 'n_ele': len(x[0]), 'layer': cuboid_layer,
-                        'rank': x[1] * self.option.score_weight - len(x[0]) * cuboid_layer ** 2
-                    } for x in layer_ret_lists
-                ])
+                if self.option.psqueeze:
+                    ret_lists.extend([
+                        {
+                            'rc': x[0], 'score': x[1], 'n_ele': len(x[0]), 'layer': cuboid_layer,
+                            'rank': x[1] * self.option.score_weight - len(x[0]) * cuboid_layer ** 2
+                        } for x in layer_ret_lists
+                    ])
+                else:
+                    ret_lists.extend([
+                        {
+                            'rc': x[0], 'score': x[1], 'n_ele': len(x[0]), 'layer': cuboid_layer,
+                            'rank': x[1] * self.option.score_weight - len(x[0]) * cuboid_layer
+                        } for x in layer_ret_lists
+                    ])
                 if len(list(filter(lambda x: x['score'] > self.option.ps_upper_bound, ret_lists))):
                     break
         else:
@@ -408,7 +428,8 @@ class Squeeze:
             ret_lists = []
             for cuboid_layer in np.arange(max_cuboid_layer) + 1:
                 layer_ret_lists = list(map(
-                    lambda x, _i=indices, _mu=mu, _sigma=sigma: self._locate_in_cuboid(x, indices=_i, mu=_mu, sigma=_sigma),
+                    lambda x, _i=indices, _mu=mu, _sigma=sigma: self._locate_in_cuboid(x, indices=_i, mu=_mu,
+                                                                                       sigma=_sigma),
                     combinations(self.attribute_names, cuboid_layer)
                 ))
                 ret_lists.extend([
@@ -428,7 +449,8 @@ class Squeeze:
             ret = ret_lists[0]['rc']
             logger.debug(
                 f"find root cause: {AC.batch_to_string(ret)}, rank: {ret_lists[0]['rank']}, score: {ret_lists[0]['score']}")
-            logger.debug(f"candidate: {list(map(lambda x: (AC.batch_to_string(x['rc']), x['score'], x['rank']), ret_lists[:min(3, len(ret_lists))]))}")
+            logger.debug(
+                f"candidate: {list(map(lambda x: (AC.batch_to_string(x['rc']), x['score'], x['rank']), ret_lists[:min(3, len(ret_lists))]))}")
             self._root_cause.append(frozenset(ret))
             self.info_collect["scores"].append(ret_lists[0]['score'])
             self.info_collect["ranks"].append(ret_lists[0]['rank'])
@@ -450,6 +472,7 @@ class Squeeze:
                 d[f"{k}_max"] = float(np.max(d[k]))
                 d[f"{k}_min"] = float(np.min(d[k]))
             del d[k]
+
         update_info(self.info_collect, "scores")
         update_info(self.info_collect, "ranks")
         update_info(self.info_collect, "n_eles")
@@ -461,24 +484,32 @@ class Squeeze:
             self.update_info_collect()
             return
         if self.option.score_weight == 'auto':
-            num_sample = len(self._f)
-            if self.option.psqueeze: # NOTE: for PSqueeze
-                num_sample = num_sample * 3
+            if self.option.psqueeze:
+                num_sample = len(self._f) * 3
 
-            n_cluster = len(self.cluster_list)
-            n_attr = sum(len(_) for _ in self.attribute_values)
-            cover_rate = sum(len(_) for _ in self.cluster_list) / num_sample
+                n_cluster = len(self.cluster_list)
+                n_attr = sum(len(_) for _ in self.attribute_values)
+                cover_rate = sum(len(_) for _ in self.cluster_list) / num_sample
 
-            n_cluster_gain = np.log(n_cluster+1) / n_cluster if n_cluster > 0 else 1
-            cover_rate_gain = - np.log(min(max(cover_rate, 1e-9), 1-1e-9))
-            n_attr_gain = n_attr / np.log(n_attr+1) if n_attr > 0 else 1
+                n_cluster_gain = np.log(n_cluster + 1) / n_cluster if n_cluster > 0 else 1
+                cover_rate_gain = - np.log(min(max(cover_rate, 1e-9), 1 - 1e-9))
+                n_attr_gain = n_attr / np.log(n_attr + 1) if n_attr > 0 else 1
 
-            self.option.score_weight = n_cluster_gain * cover_rate_gain * n_attr_gain
+                self.option.score_weight = n_cluster_gain * cover_rate_gain * n_attr_gain
 
-            logger.debug(f"auto score weight: {self.option.score_weight} = {n_cluster_gain} * {cover_rate_gain} * {n_attr_gain}")
-            logger.debug(f"n_cluster: {n_cluster}")
-            logger.debug(f"n_attr: {n_attr}")
-            logger.debug(f"cover_rate: {cover_rate}")
+                logger.debug(
+                    f"auto score weight:"
+                    f" {self.option.score_weight} = {n_cluster_gain} * {cover_rate_gain} * {n_attr_gain}")
+                logger.debug(f"n_cluster: {n_cluster}")
+                logger.debug(f"n_attr: {n_attr}")
+                logger.debug(f"cover_rate: {cover_rate}")
+            else:
+                self.option.score_weight = - np.log(
+                    len(self.cluster_list) *
+                    sum(len(_) for _ in self.cluster_list) / len(self._f)) / np.log(
+                    sum(len(_) for _ in self.attribute_values)) * sum(len(_) for _ in self.attribute_values)
+                logger.debug(f"auto score weight: {self.option.score_weight}")
+
             self.info_collect["score_weight"] = self.option.score_weight
         for indices in self.cluster_list:
             self._locate_in_cluster(indices)
@@ -492,9 +523,9 @@ class Squeeze:
         '''
         # NOTE: for PSqueeze
         with np.errstate(divide='ignore', invalid='ignore'):
-            _minus = self.__deviation_score((self._v-self.option.bias).clip(min=min), self._f)
+            _minus = self.__deviation_score((self._v - self.option.bias).clip(min=min), self._f)
             _origin = self.__deviation_score(self._v, self._f)
-            _plus = self.__deviation_score(self._v+self.option.bias, self._f)
+            _plus = self.__deviation_score(self._v + self.option.bias, self._f)
             deviation_scores = np.array((_minus, _origin, _plus)).T
             del _minus, _origin, _plus
         assert np.shape(deviation_scores)[0] == np.shape(self._v)[0] == np.shape(self._f)[0], \
@@ -504,7 +535,7 @@ class Squeeze:
         assert np.sum(~np.isfinite(deviation_scores)) == 0, \
             f"there are infinity in deviation score {np.where(~np.isfinite(deviation_scores))}"
         logger.debug(f"anomaly ratio ranges in [{np.min(deviation_scores)}, {np.max(deviation_scores)}]")
-        logger.debug(f"anomaly ratio ranges in [{np.min(deviation_scores[:,1])}, {np.max(deviation_scores[:,1])}]")
+        logger.debug(f"anomaly ratio ranges in [{np.min(deviation_scores[:, 1])}, {np.max(deviation_scores[:, 1])}]")
         return deviation_scores
 
     @property
@@ -522,7 +553,6 @@ class Squeeze:
         assert np.sum(~np.isfinite(histogram_weights)) == 0, \
             f"there are infinity in histogram weights {np.where(~np.isfinite(histogram_weights))}"
         return histogram_weights
-
 
     @property
     @lru_cache()
@@ -590,12 +620,12 @@ class Squeeze:
     def __variance_weights(v, f, bias, min):
         # NOTE: for PSqueeze
         with np.errstate(divide='ignore', invalid='ignore'):
-            _v = (v+0.5).astype(int).clip(min=min) # round to integer
-            _variance_v = np.array((_v-bias, _v, _v+bias)).T
-            possion_prob = lambda x: (x[1]**x)*(np.math.e**(-x[1]))/factorial(x)
+            _v = (v + 0.5).astype(int).clip(min=min)  # round to integer
+            _variance_v = np.array((_v - bias, _v, _v + bias)).T
+            possion_prob = lambda x: (x[1] ** x) * (np.math.e ** (-x[1])) / factorial(x)
             ret = np.apply_along_axis(func1d=possion_prob, axis=1, arr=_variance_v)
             # ret = np.apply_along_axis(func1d=lambda x: x/x[1], axis=1, arr=ret) # normalization on each line
-            ret = np.apply_along_axis(func1d=lambda x: x/np.sum(x), axis=1, arr=ret) # normalization on each line
+            ret = np.apply_along_axis(func1d=lambda x: x / np.sum(x), axis=1, arr=ret)  # normalization on each line
         # NOTE: error strategy here
         ret[:, 1][np.isnan(ret[:, 1])] = 1.
         ret[:, 1][np.isinf(ret[:, 1])] = 1.
