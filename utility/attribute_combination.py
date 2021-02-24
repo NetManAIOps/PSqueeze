@@ -89,10 +89,13 @@ class AttributeCombination(dict):
             return np.ones(len(data), dtype=np.bool)
         try:
             arr = np.zeros(shape=len(data), dtype=np.bool)
-            if len(self.non_any_values) == 1:
-                idx = data.index.get_loc(self.non_any_values[0])
+            if "loc" not in data.columns:
+                if len(self.non_any_values) == 1:
+                    idx = data.index.get_loc(self.non_any_values[0])
+                else:
+                    idx = data.index.get_loc(self.non_any_values)
             else:
-                idx = data.index.get_loc(self.non_any_values)
+                idx = np.array(data.loc[self.non_any_values, 'loc'], dtype=int)
             arr[idx] = True
             return arr
         except KeyError:

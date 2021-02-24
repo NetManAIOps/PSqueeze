@@ -117,7 +117,7 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
         format=f"<yellow>{file_path.name}</yellow> - {LOGURU_FORMAT}",
         backtrace=True
     )
-    logger.info(f"running squeeze for {file_path}")
+    logger.info(f"running {algorithm} for {file_path}")
     df = load_data(file_path, injection_info, toint)
     try:
         timestamp = int(file_path.name.rstrip('.csv'))

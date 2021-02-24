@@ -48,8 +48,9 @@ class Squeeze:
         self.attribute_names = list(sorted(set(self.derived_data.columns) - {'real', 'predict'}))
         logger.debug(f"available attributes: {self.attribute_names}")
 
-        self.derived_data.sort_values(by=self.attribute_names, inplace=True)
         self.data_list = list(map(lambda x: x.sort_values(by=self.attribute_names), self.data_list))
+        self.derived_data.sort_values(by=self.attribute_names, inplace=True)
+        self.derived_data['loc'] = np.arange(len(self.derived_data))
 
         self.attribute_values = list(list(set(self.derived_data.loc[:, name].values)) for name in self.attribute_names)
         logger.debug(f"available values: {self.attribute_values}")
@@ -95,7 +96,7 @@ class Squeeze:
 
     @lru_cache()
     def get_indexed_data(self, cuboid: Tuple[str, ...]):
-        return self.derived_data.set_index(list(cuboid))
+        return self.derived_data.set_index(list(cuboid)).sort_index()
 
     @property
     @lru_cache()

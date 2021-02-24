@@ -18,7 +18,7 @@ class MID:
             p: float = 0.2,
             d: float = 0.5,
             max_seconds: Optional[float] = 60,
-            max_iterations: Optional[int] = 1e3,
+            max_iterations: Optional[int] = 1e5,
     ):
         """
         :param data_list:
@@ -39,11 +39,11 @@ class MID:
             self._op
         )
         self._derived_data['diff'] = np.abs(self.derived_data['real'] - self.derived_data['predict'])
+        self._derived_data['loc'] = np.arange(len(self.derived_data))
         self._derived_data = self._derived_data[self._derived_data.predict > 0]
         self._root_causes: List[FrozenSet[AC]] = []
 
         self.attribute_names = list(sorted(set(self._derived_data.columns) - {'real', 'predict', 'diff'}))
-        # self._derived_data = self._derived_data.sort_values(by=self.attribute_names)
         logger.debug(f"available attributes: {self.attribute_names}")
 
         self.attribute_values: Dict = {
@@ -150,7 +150,8 @@ class MID:
 
     @lru_cache
     def _get_indexed_dataframe(self, keys):
-        return self._derived_data.set_index(list(keys)).sort_index()
+        # 不能乱排序，需要保证loc和self.derived_data是一样的
+        return self._derived_data.set_index(list(keys))
 
     @lru_cache
     def ac_distance(self, a: AC, b: AC) -> float:
@@ -297,24 +298,24 @@ class MID:
 
     @lru_cache
     def objective_function(self, ac: AC):
-        # def dis(_a, _b):
-        #     _ret = np.abs(_a - _b)
-        #     if len(_ret) <= 0:
-        #         return 0.
-        #     else:
-        #         return np.mean(_ret)
-        # idx_p = self.get_index_by_ac(ac)
-        # idx_n = np.logical_not(idx_p)
-        # v1 = self._derived_data.loc[idx_p, 'real'].values
-        # v2 = self._derived_data.loc[idx_n, 'real'].values
-        # f1 = self._derived_data.loc[idx_p, 'predict'].values
-        # f2 = self._derived_data.loc[idx_n, 'predict'].values
-        # a1 = f1 * np.sum(v1) / np.sum(f1)
-        # return 1 - (
-        #     dis(v1, a1) + dis(v2, f2)
-        # ) / (
-        #     dis(v1, f1) + dis(v2, f2) + 1e-4
-        # )
+        def dis(_a, _b):
+            _ret = np.abs(_a - _b)
+            if len(_ret) <= 0:
+                return 0.
+            else:
+                return np.mean(_ret)
+        idx_p = self.get_index_by_ac(ac)
+        idx_n = np.logical_not(idx_p)
+        v1 = self._derived_data.loc[idx_p, 'real'].values
+        v2 = self._derived_data.loc[idx_n, 'real'].values
+        f1 = self._derived_data.loc[idx_p, 'predict'].values
+        f2 = self._derived_data.loc[idx_n, 'predict'].values
+        a1 = f1 * np.sum(v1) / np.sum(f1)
+        return 1 - (
+            dis(v1, a1) + dis(v2, f2)
+        ) / (
+            dis(v1, f1) + dis(v2, f2) + 1e-4
+        )
 
         # EP
         # delta = (
@@ -327,13 +328,13 @@ class MID:
         # return cover / delta
 
         # fisher
-        idx = self.get_index_by_ac(ac)
-        pa = self._derived_data.loc[idx, 'real'].sum() / self._derived_data['real'].sum() + 1e-4
-        pb = self._derived_data.loc[idx, 'predict'].sum() / self._derived_data['predict'].sum() + 1e-4
-        p = self._derived_data.loc[idx, 'diff'].sum() / self._derived_data['diff'].sum() + 1e-4
-        # p = abs((self._derived_data.loc[idx, 'real'].sum() - self._derived_data.loc[idx, 'predict'].sum())
-        #         / (self._derived_data['real'].sum() - self._derived_data['predict'].sum()))
-        return np.abs(p * np.log(pa / pb))
+        # idx = self.get_index_by_ac(ac)
+        # pa = self._derived_data.loc[idx, 'real'].sum() / self._derived_data['real'].sum() + 1e-4
+        # pb = self._derived_data.loc[idx, 'predict'].sum() / self._derived_data['predict'].sum() + 1e-4
+        # p = self._derived_data.loc[idx, 'diff'].sum() / self._derived_data['diff'].sum() + 1e-4
+        # # p = abs((self._derived_data.loc[idx, 'real'].sum() - self._derived_data.loc[idx, 'predict'].sum())
+        # #         / (self._derived_data['real'].sum() - self._derived_data['predict'].sum()))
+        # return np.abs(p * np.log(pa / pb))
 
     @lru_cache
     def tuple_entropy(self, attribute, value):
