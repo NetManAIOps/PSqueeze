@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
+
 echo_and_run() {
   echo "$@"
   "$@"
 }
+
 run_setting() {
   DATA_ROOT=Psqueeze-dataset
   DATASET=${1:-B5}
@@ -37,11 +39,11 @@ run_setting() {
 }
 
 
-#for dataset in A B5 B6 B7 B8 D; do
-#  for n_ele in 1 2 3; do
-#    for cuboid_layer in 1 2 3; do
-#      echo_and_run run_setting ${dataset} ${n_ele} ${cuboid_layer} mid
-#    done
-#  done
-#done
-run_setting D 2 2 squeeze
+for dataset in A B5 B6 B7 B8 D; do
+  for n_ele in 1 2 3; do
+    for cuboid_layer in 1 2 3; do
+      echo_and_run run_setting ${dataset} ${n_ele} ${cuboid_layer} mid
+    done
+  done
+done
+#run_setting D 2 2 mid

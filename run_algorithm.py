@@ -36,7 +36,6 @@ otherwise save to {output_path}")
 )
 @click.option(
     "--algorithm", default="psqueeze", help="algorithm name",
-    type=click.Choice(["squeeze", "psqueeze", "mid"], case_sensitive=False)
 )
 @click.option("--derived", is_flag=True, help="means we should read {timestamp}.a.csv and {timestamp}.b.csv")
 @click.option("--toint", is_flag=True, help="round measure values to integer")
@@ -149,19 +148,19 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
         **kwargs,
     )
 
-    if algorithm == "psqueeze":
+    if algorithm.lower() in {'psqueeze', 'psq'}:
         model = Squeeze(
             data_list=[df],
             op=lambda x: x,
             option=psqueezeOption,
         )
-    elif algorithm == "squeeze":
+    elif algorithm.lower() in {'squeeze', 'sq'}:
         model = Squeeze(
             data_list=[df],
             op=lambda x: x,
             option=squeezeOption,
         )
-    elif algorithm == "mid":
+    elif algorithm.lower() in {'mid'}:
         model = MID(data_list=[df], **kwargs)
     else:
         raise RuntimeError(f"unknown algorithm name: {algorithm=}")
@@ -233,19 +232,19 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
     )
 
     algorithm = kwargs.pop("algorithm", "psqueeze")
-    if algorithm == "psqueeze":
+    if algorithm.lower() in {'psqueeze', 'psq'}:
         model = Squeeze(
             data_list=[dfa, dfb],
             op=divide,
             option=psqueezeOption,
         )
-    elif algorithm == 'squeeze':
+    elif algorithm.lower() in {'squeeze', 'sq'}:
         model = Squeeze(
             data_list=[dfa, dfb],
             op=divide,
             option=squeezeOption,
         )
-    elif algorithm == "mid":
+    elif algorithm.lower() in {'mid'}:
         model = MID(data_list=[dfa, dfb], op=divide, **kwargs)
     else:
         raise RuntimeError(f"unknown algorithm name: {algorithm=}")
