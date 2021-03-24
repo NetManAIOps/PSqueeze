@@ -13,6 +13,7 @@ from joblib import Parallel, delayed
 # noinspection PyProtectedMember
 from loguru._defaults import LOGURU_FORMAT
 
+from ImpAPTr import ImpAPTr
 from MID import MID
 from utility import AC, AttributeCombination
 from post_process import post_process
@@ -39,6 +40,7 @@ otherwise save to {output_path}")
 )
 @click.option("--derived", is_flag=True, help="means we should read {timestamp}.a.csv and {timestamp}.b.csv")
 @click.option("--toint", is_flag=True, help="round measure values to integer")
+@click.option("--n-ele", default=1, help="for ImpAPTr")
 def main(name, input_path, output_path, num_workers, **kwargs):
     """
     :param name:
@@ -94,7 +96,7 @@ def main(name, input_path, output_path, num_workers, **kwargs):
 
 
 def load_data(file_path: Path, injection_info, toint=False):
-    df = pd.read_csv(file_path.resolve(), engine='python', dtype='str', delimiter=r"\s*,\s*")
+    df = pd.read_csv(file_path.resolve(), dtype='str', delimiter=r",")
     if "ex_rc_dim" in injection_info.columns:
         ex_rc_dim = str(injection_info.loc[int(file_path.stem), "ex_rc_dim"])
         if not ex_rc_dim == "nan":
@@ -132,7 +134,7 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
         density_estimation_method="histogram_prob",
         bias=1,
-        score_measure="auto",  # NOTE: "ps"  "ji" "pjavg" "pps" "auto"
+        score_measure="ps",  # NOTE: "ps"  "ji" "pjavg" "pps" "auto"
         dis_norm=False,
         # max_bins=100, # NOTE here
         **kwargs,
@@ -162,6 +164,8 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
         )
     elif algorithm.lower() in {'mid'}:
         model = MID(data_list=[df], **kwargs)
+    elif algorithm.lower() == "impaptr":
+        model = ImpAPTr(data_list=[df], **kwargs)
     else:
         raise RuntimeError(f"unknown algorithm name: {algorithm=}")
     model.run()
@@ -195,11 +199,12 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
     logger.remove()
     ts = file_path_list[0].name.rstrip('.a.csv')
     logger.add(
-        sys.stdout, level='DEBUG',
+        sys.stdout, level='INFO',
         format=f"<yellow>{ts}</yellow> - {LOGURU_FORMAT}",
         backtrace=True
     )
-    logger.info(f"running squeeze for {ts}")
+    algorithm = kwargs.pop("algorithm", "psqueeze")
+    logger.info(f"running {algorithm} for {ts}")
     dfa = load_data(file_path_list[0].resolve(), injection_info, toint=toint)
     dfb = load_data(file_path_list[1].resolve(), injection_info, toint=toint)
     zero_index = (dfa.real == 0) & (dfa.predict == 0) & (dfb.real == 0) & (dfb.predict == 0)
@@ -231,7 +236,6 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
         **kwargs,
     )
 
-    algorithm = kwargs.pop("algorithm", "psqueeze")
     if algorithm.lower() in {'psqueeze', 'psq'}:
         model = Squeeze(
             data_list=[dfa, dfb],
@@ -246,6 +250,8 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
         )
     elif algorithm.lower() in {'mid'}:
         model = MID(data_list=[dfa, dfb], op=divide, **kwargs)
+    elif algorithm.lower() == "impaptr":
+        model = ImpAPTr(data_list=[dfa, dfb], op=divide,  **kwargs)
     else:
         raise RuntimeError(f"unknown algorithm name: {algorithm=}")
     model.run()

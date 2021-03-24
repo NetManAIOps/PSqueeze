@@ -95,7 +95,7 @@ class AttributeCombination(dict):
                 else:
                     idx = data.index.get_loc(self.non_any_values)
             else:
-                idx = np.array(data.loc[self.non_any_values, 'loc'], dtype=int)
+                idx = np.array(data.loc[self.non_any_values]['loc'], dtype=int)
             arr[idx] = True
             return arr
         except KeyError:

@@ -1,6 +1,7 @@
 import random
 import time
 from itertools import product
+import pylru
 
 import numpy as np
 from typing import List, Callable, FrozenSet, Set, Dict, Optional
@@ -39,12 +40,13 @@ class MID:
             self._op
         )
         self._derived_data['diff'] = np.abs(self.derived_data['real'] - self.derived_data['predict'])
-        self._derived_data['loc'] = np.arange(len(self.derived_data))
         self._derived_data = self._derived_data[self._derived_data.predict > 0]
         self._root_causes: List[FrozenSet[AC]] = []
 
         self.attribute_names = list(sorted(set(self._derived_data.columns) - {'real', 'predict', 'diff'}))
         logger.debug(f"available attributes: {self.attribute_names}")
+
+        self._derived_data['loc'] = np.arange(len(self.derived_data))
 
         self.attribute_values: Dict = {
             name: set(self._derived_data[name]) for name in self.attribute_names
@@ -58,7 +60,7 @@ class MID:
                 return True
             if self.max_iterations is not None and iter_cnt > self.max_iterations:
                 return True
-            if unchanged_cnt > 10:
+            if unchanged_cnt > 100:
                 return True
             return False
         if self.__finished:
@@ -67,7 +69,7 @@ class MID:
         c = AC(**{a: AC.ANY for a in self.attribute_names})
         ec: Set[AC] = set()
         min_score = float('inf')
-        forbidden: Set[AC] = set()
+        forbidden = pylru.lrucache(size=100)
         unchanged_cnt = 0
         iter_cnt = 0
         tic = time.time()
@@ -77,7 +79,7 @@ class MID:
             #     f"{c=} {unchanged_cnt=} {iter_cnt=} {elapsed_time=}"
             # )
             # logger.debug(f"{ec=}")
-            forbidden.add(c)
+            forbidden[c] = True
             if len(ec) == 0 or self.objective_function(c) > min_score:
                 min_score = min(self.objective_function(c), min_score)
                 ec.add(c)
@@ -94,6 +96,7 @@ class MID:
                 unchanged_cnt = 0
             iter_cnt += 1
             c = new_c
+        logger.info(f"EC size: {len(ec)}")
         ec: List[AC] = sorted(list(ec), key=lambda _: self.objective_function(_), reverse=True)[:10]
         logger.info(f"get EC: {ec[:10]}...")
         logger.info(f"calculating distance")
@@ -151,7 +154,7 @@ class MID:
     @lru_cache
     def _get_indexed_dataframe(self, keys):
         # 不能乱排序，需要保证loc和self.derived_data是一样的
-        return self._derived_data.set_index(list(keys))
+        return self._derived_data.set_index(list(keys)).sort_index()
 
     @lru_cache
     def ac_distance(self, a: AC, b: AC) -> float:
@@ -188,10 +191,8 @@ class MID:
             ops = ['swap_value', 'delete']
         elif len(c.non_any_keys) == 0:
             ops = ['add']
-        elif len(c.non_any_keys) > 1:
-            ops = ['add', 'swap_value', "swap_tuple", 'delete']
         else:
-            ops = ['add', 'swap_value', "swap_tuple"]
+            ops = ['add', 'swap_value', "swap_tuple", 'delete']
         op = random.choice(ops)
         logger.debug(f"{op=} {ops=}")
         return op
@@ -311,11 +312,14 @@ class MID:
         f1 = self._derived_data.loc[idx_p, 'predict'].values
         f2 = self._derived_data.loc[idx_n, 'predict'].values
         a1 = f1 * np.sum(v1) / np.sum(f1)
-        return 1 - (
+        ps = 1 - (
             dis(v1, a1) + dis(v2, f2)
         ) / (
             dis(v1, f1) + dis(v2, f2) + 1e-4
         )
+        cuboid_layer = len(ac.non_any_keys)
+        weight = 0.01
+        return ps - weight * cuboid_layer * cuboid_layer
 
         # EP
         # delta = (

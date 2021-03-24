@@ -275,7 +275,7 @@ class Squeeze:
                 _v1, _v2 = data_p.real.values, data_n.real.values
                 _pv, _pf = np.sum(_v1), np.sum(data_p.predict.values)
                 _f1, _f2 = data_p.predict.values, data_n.predict.values
-                _a1, _a2 = data_p.predict.values * (_pv / _pf), data_n.predict.values
+                _a1, _a2 = data_p.predict.values * (_pv / (_pf )), data_n.predict.values
 
                 if self.option.dis_norm:
                     deno_1 = np.maximum(_v1, _f1).clip(1e-6)
