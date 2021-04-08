@@ -60,15 +60,16 @@ run_setting() {
 }
 
 #run_case
-run_setting D 1 1 ImpAPTr
+#run_setting D 3 1 SQ
 #EVAL_ONLY=true
 #for alg in PSQ SQ ADT RAD APR HS MID; do
-# for alg in ImpAPTr; do
-#   for dataset in A B5 B6 B7 B8 D; do
-#     for n_ele in 1 2 3; do
-#       for cuboid_layer in 1 2 3; do
-#         echo_and_run run_setting ${dataset} ${n_ele} ${cuboid_layer} ${alg}
-#       done
-#     done
-#   done
-# done
+for alg in PSQ; do
+##  for dataset in A B5 B6 B7 B8 D; do
+  for dataset in D; do
+    for n_ele in 3; do
+      for cuboid_layer in 1; do
+        echo_and_run run_setting ${dataset} ${n_ele} ${cuboid_layer} ${alg}
+      done
+    done
+  done
+done

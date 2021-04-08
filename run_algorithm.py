@@ -228,6 +228,16 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
         bias=0,
         **kwargs,
     )
+    psqueezeOption_a = SqueezeOption(
+        psqueeze=True,
+        debug=debug,
+        fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
+        density_estimation_method='histogram_prob',
+        # max_bins=100,
+        enable_filter=True,
+        bias=1,
+        **kwargs,
+    )
     squeezeOption = SqueezeOption(
         psqueeze=False,
         debug=debug,
@@ -241,6 +251,12 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
             data_list=[dfa, dfb],
             op=divide,
             option=psqueezeOption,
+        )
+    elif algorithm.lower() in {'psqa'}:
+        model = Squeeze(
+            data_list=[dfa, dfb],
+            op=divide,
+            option=psqueezeOption_a,
         )
     elif algorithm.lower() in {'squeeze', 'sq'}:
         model = Squeeze(
