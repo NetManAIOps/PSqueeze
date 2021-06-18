@@ -16,6 +16,7 @@ from loguru import logger
 # noinspection PyProtectedMember
 from loguru._defaults import LOGURU_FORMAT
 
+from Apriori import AprioriRCA
 from ImpAPTr import ImpAPTr
 from MID import MID
 from post_process import post_process
@@ -142,8 +143,10 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
         )
     elif algorithm.lower() in {'mid'}:
         model = MID(data_list=[df], **kwargs)
-    elif algorithm.lower() == "impaptr":
+    elif algorithm.lower() in {"impaptr", 'iap'}:
         model = ImpAPTr(data_list=[df], **kwargs)
+    elif algorithm.lower() in {"apriori", 'apr'}:
+        model = AprioriRCA(data_list=[df], **kwargs)
     else:
         raise RuntimeError(f"unknown algorithm name: {algorithm=}")
     model.run()
@@ -158,12 +161,11 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
     toc = time.time()
     elapsed_time = toc - tic
 
-    ep = explanatory_power(model.derived_data, root_cause)
     result = {
         'timestamp': timestamp,
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
-        'ep': ep,
+        # 'ep': explanatory_power(model.derived_data, root_cause) if algorithm in {'psq', 'psqueeze'} else None,
         'ground_truth': injection_info.loc[int(file_path.stem), 'set']
         if int(file_path.stem) in injection_info.index else None,
         'info_collect': model.info_collect,
@@ -214,6 +216,8 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
         model = MID(data_list=[dfa, dfb], op=divide, **kwargs)
     elif algorithm.lower() == "impaptr":
         model = ImpAPTr(data_list=[dfa, dfb], op=divide, **kwargs)
+    elif algorithm.lower() in {"apriori", 'apr'}:
+        model = AprioriRCA(data_list=[dfa, dfb], op=divide, **kwargs)
     else:
         raise RuntimeError(f"unknown algorithm name: {algorithm=}")
     model.run()

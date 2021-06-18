@@ -24,7 +24,7 @@ from utility import AC
 def main(input_file_list, output_dir, **kwargs):
     input_file_list = list(map(Path, input_file_list))
     output_dir = Path(output_dir)
-    derived: bool = kwargs['derived']
+    derived: bool = kwargs.pop('derived')
     if derived:
         result = executor_derived(
             input_file_list, output_path=output_dir, injection_info=pd.DataFrame(), **kwargs

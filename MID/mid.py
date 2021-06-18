@@ -20,6 +20,7 @@ class MID:
             d: float = 0.5,
             max_seconds: Optional[float] = 60,
             max_iterations: Optional[int] = 1e5,
+            **kwargs
     ):
         """
         :param data_list:
