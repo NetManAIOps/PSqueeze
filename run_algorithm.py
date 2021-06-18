@@ -131,13 +131,13 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
     if algorithm.lower() in {'psqueeze', 'psq'}:
         model = get_model_psq(
             [df], op=lambda x: x,
-            debug=debug, output_path=output_path, timestamp=timestamp,
+            debug=debug, output_path=output_path, timestamp=timestamp, derived=False,
             **kwargs
         )
     elif algorithm.lower() in {'squeeze', 'sq'}:
         model = get_model_squeeze(
             [df], op=lambda x: x,
-            debug=debug, output_path=output_path, timestamp=timestamp,
+            debug=debug, output_path=output_path, timestamp=timestamp, derived=False,
             **kwargs
         )
     elif algorithm.lower() in {'mid'}:
@@ -164,7 +164,8 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
         'ep': ep,
-        'ground_truth': injection_info.loc[int(file_path.stem), 'set'],
+        'ground_truth': injection_info.loc[int(file_path.stem), 'set']
+        if int(file_path.stem) in injection_info.index else None,
         'info_collect': model.info_collect,
     }
 
@@ -200,13 +201,13 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
     if algorithm.lower() in {'psqueeze', 'psq'}:
         model = get_model_psq(
             [dfa, dfb], op=divide,
-            debug=debug, output_path=output_path, timestamp=timestamp,
+            debug=debug, output_path=output_path, timestamp=timestamp, derived=True,
             **kwargs
         )
     elif algorithm.lower() in {'squeeze', 'sq'}:
         model = get_model_squeeze(
             [dfa, dfb], op=divide,
-            debug=debug, output_path=output_path, timestamp=timestamp,
+            debug=debug, output_path=output_path, timestamp=timestamp, derived=True,
             **kwargs
         )
     elif algorithm.lower() in {'mid'}:
@@ -237,7 +238,7 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
     return result
 
 
-def get_model_squeeze(data_list, op, debug: bool, output_path: Path, timestamp: int, **kwargs):
+def get_model_squeeze(data_list, op, debug: bool, output_path: Path, timestamp: int, derived: bool, **kwargs):
     option = SqueezeOption(
         psqueeze=False,
         debug=debug,
@@ -247,13 +248,13 @@ def get_model_squeeze(data_list, op, debug: bool, output_path: Path, timestamp: 
     return Squeeze(data_list=data_list, op=op, option=option)
 
 
-def get_model_psq(data_list, op, debug: bool, output_path: Path, timestamp: int, **kwargs):
+def get_model_psq(data_list, op, debug: bool, output_path: Path, timestamp: int, derived: bool, **kwargs):
     option = SqueezeOption(
         psqueeze=True,
         debug=debug,
         fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
         density_estimation_method="histogram_prob",
-        bias=1,
+        bias=1 if not derived else 0,
         **kwargs,
     )
     return Squeeze(data_list=data_list, op=op, option=option)

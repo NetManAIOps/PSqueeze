@@ -276,13 +276,19 @@ class Squeeze:
                 _pv, _pf = np.sum(_v1), np.sum(data_p.predict.values)
                 _f1, _f2 = data_p.predict.values, data_n.predict.values
 
-                reducde_data_p, _ = self.get_derived_dataframe(
+                reduced_data_p, _ = self.get_derived_dataframe(
                     frozenset(elements[:partition]), cuboid=cuboid,
                     reduction="sum", return_complement=True,
                     subset_indices=np.concatenate([indices, self.normal_indices]))
-                _a1, _a2 = data_p.predict.values * (
-                        reducde_data_p.real.item() / reducde_data_p.predict.item()
-                ), data_n.predict.values
+                if len(reduced_data_p):
+                    _a1, _a2 = data_p.predict.values * (
+                            reduced_data_p.real.item() / reduced_data_p.predict.item()
+                    ), data_n.predict.values
+                else:
+                    # print(elements[:partition], data_p, reduced_data_p)
+                    assert len(data_p) == 0
+                    _a1 = 0
+                    _a2 = data_n.predict.values
 
                 if self.option.dis_norm:
                     deno_1 = np.maximum(_v1, _f1).clip(1e-6)
