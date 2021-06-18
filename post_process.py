@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 
-import json 
-import os
 import itertools
-import numpy as np 
+import json
+import os
+
+import numpy as np
 from scipy.signal import argrelextrema
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
 
 def post_process(results):
     scores_min = np.array([
@@ -26,6 +28,7 @@ def post_process(results):
                 result["external_rc"] = True
             # else:
             #     result["external_rc"] = bool((result["ep"] < 0.65) and (n_rc > 3))
+
 
 def get_threshold(array):
     density_array, edges = np.histogram(array, bins='auto', range=(-0.2, 1.2), density=True)
@@ -60,7 +63,8 @@ def change_result():
         [1, 2, 3],
     ]
     paths = list(map(
-        lambda x: f"{SCRIPT_DIR}/psq_{x[0]}_result/{x[1]}/B_cuboid_layer_{x[2]}_n_ele_{x[3]}/B_cuboid_layer_{x[2]}_n_ele_{x[3]}.json",
+        lambda
+            x: f"{SCRIPT_DIR}/psq_{x[0]}_result/{x[1]}/B_cuboid_layer_{x[2]}_n_ele_{x[3]}/B_cuboid_layer_{x[2]}_n_ele_{x[3]}.json",
         # lambda x: f"{SCRIPT_DIR}/psq_{x[0]}_result/A"+f"/new_dataset_A_week_{x[1]}_n_elements_{x[2]}_layers_{x[3]}"*2+".json",
         itertools.product(*paths)
     ))
@@ -70,6 +74,7 @@ def change_result():
         post_process(results)
         with open(p, "w+") as f:
             json.dump(results, f, indent=4)
+
 
 if __name__ == "__main__":
     change_result()

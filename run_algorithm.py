@@ -1,28 +1,26 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import json
 import sys
 import time
-from pathlib import Path
-import click
 from functools import reduce
+from pathlib import Path
 from typing import Dict, List
-import json
+
+import click
 import numpy as np
+import pandas as pd
 # from run_apriori import run
 from joblib import Parallel, delayed
+from loguru import logger
 # noinspection PyProtectedMember
 from loguru._defaults import LOGURU_FORMAT
 
 from ImpAPTr import ImpAPTr
 from MID import MID
-from utility import AC, AttributeCombination
 from post_process import post_process
 from squeeze import Squeeze, SqueezeOption
-import pandas as pd
-from loguru import logger
-
-import os
-import pandas as pd
+from utility import AC
 
 
 @click.command('Runner')
@@ -89,7 +87,8 @@ def main(name, input_path, output_path, num_workers, **kwargs):
                 timestamps
             )
         )
-    post_process(results)
+    if kwargs['algorithm'] in {'psq', 'psqueeze'}:
+        post_process(results)
     with open(str(output_path.resolve()), "w+") as f:
         json.dump(results, f, indent=4)
     logger.info(json.dumps(results, indent=4))
@@ -100,6 +99,7 @@ def load_data(file_path: Path, injection_info, toint=False):
     if "ex_rc_dim" in injection_info.columns:
         ex_rc_dim = str(injection_info.loc[int(file_path.stem), "ex_rc_dim"])
         if not ex_rc_dim == "nan":
+            # TODO? wrong. need groupby
             df = df.drop(ex_rc_dim.split(";"), axis=1)
     df['real'] = df['real'].astype(float)
     df['predict'] = df['predict'].astype(float)
@@ -128,39 +128,17 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
         logger.warning(f"Unresolved timestamp: {timestamp}")
     tic = time.time()
 
-    psqueezeOption = SqueezeOption(
-        psqueeze=True,
-        debug=debug,
-        fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
-        density_estimation_method="histogram_prob",
-        bias=1,
-        score_measure="ps",  # NOTE: "ps"  "ji" "pjavg" "pps" "auto"
-        dis_norm=False,
-        # max_bins=100, # NOTE here
-        **kwargs,
-    )
-    squeezeOption = SqueezeOption(
-        psqueeze=False,
-        debug=debug,
-        fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
-        score_measure="ps",  # NOTE: "ps" or "ji"
-        dis_norm=False,
-        # max_bins=100, # NOTE here
-        # histogram_bar_width = 0.01,
-        **kwargs,
-    )
-
     if algorithm.lower() in {'psqueeze', 'psq'}:
-        model = Squeeze(
-            data_list=[df],
-            op=lambda x: x,
-            option=psqueezeOption,
+        model = get_model_psq(
+            [df], op=lambda x: x,
+            debug=debug, output_path=output_path, timestamp=timestamp,
+            **kwargs
         )
     elif algorithm.lower() in {'squeeze', 'sq'}:
-        model = Squeeze(
-            data_list=[df],
-            op=lambda x: x,
-            option=squeezeOption,
+        model = get_model_squeeze(
+            [df], op=lambda x: x,
+            debug=debug, output_path=output_path, timestamp=timestamp,
+            **kwargs
         )
     elif algorithm.lower() in {'mid'}:
         model = MID(data_list=[df], **kwargs)
@@ -173,7 +151,7 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
     logger.info("\n" + model.report)
     try:
         root_cause = AC.batch_to_string(
-            frozenset(reduce(lambda x, y: x.union(y), model.root_cause, set())))  # type:
+            frozenset(reduce(lambda x, y: x.union(y), model.root_cause, set())))
     except IndexError:
         root_cause = ""
 
@@ -218,56 +196,23 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
     tic = time.time()
 
     divide = lambda x, y: np.divide(x, y, out=np.zeros_like(x), where=y != 0)
-    psqueezeOption = SqueezeOption(
-        psqueeze=True,
-        debug=debug,
-        fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
-        density_estimation_method='histogram_prob',
-        # max_bins=100,
-        enable_filter=True,
-        bias=0,
-        **kwargs,
-    )
-    psqueezeOption_a = SqueezeOption(
-        psqueeze=True,
-        debug=debug,
-        fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
-        density_estimation_method='histogram_prob',
-        # max_bins=100,
-        enable_filter=True,
-        bias=1,
-        **kwargs,
-    )
-    squeezeOption = SqueezeOption(
-        psqueeze=False,
-        debug=debug,
-        fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
-        enable_filter=True,
-        **kwargs,
-    )
 
     if algorithm.lower() in {'psqueeze', 'psq'}:
-        model = Squeeze(
-            data_list=[dfa, dfb],
-            op=divide,
-            option=psqueezeOption,
-        )
-    elif algorithm.lower() in {'psqa'}:
-        model = Squeeze(
-            data_list=[dfa, dfb],
-            op=divide,
-            option=psqueezeOption_a,
+        model = get_model_psq(
+            [dfa, dfb], op=divide,
+            debug=debug, output_path=output_path, timestamp=timestamp,
+            **kwargs
         )
     elif algorithm.lower() in {'squeeze', 'sq'}:
-        model = Squeeze(
-            data_list=[dfa, dfb],
-            op=divide,
-            option=squeezeOption,
+        model = get_model_squeeze(
+            [dfa, dfb], op=divide,
+            debug=debug, output_path=output_path, timestamp=timestamp,
+            **kwargs
         )
     elif algorithm.lower() in {'mid'}:
         model = MID(data_list=[dfa, dfb], op=divide, **kwargs)
     elif algorithm.lower() == "impaptr":
-        model = ImpAPTr(data_list=[dfa, dfb], op=divide,  **kwargs)
+        model = ImpAPTr(data_list=[dfa, dfb], op=divide, **kwargs)
     else:
         raise RuntimeError(f"unknown algorithm name: {algorithm=}")
     model.run()
@@ -290,6 +235,28 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
         'info_collect': model.info_collect,
     }
     return result
+
+
+def get_model_squeeze(data_list, op, debug: bool, output_path: Path, timestamp: int, **kwargs):
+    option = SqueezeOption(
+        psqueeze=False,
+        debug=debug,
+        fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
+        **kwargs,
+    )
+    return Squeeze(data_list=data_list, op=op, option=option)
+
+
+def get_model_psq(data_list, op, debug: bool, output_path: Path, timestamp: int, **kwargs):
+    option = SqueezeOption(
+        psqueeze=True,
+        debug=debug,
+        fig_save_path=f"{output_path.resolve()}/{timestamp}" + "{suffix}" + ".pdf",
+        density_estimation_method="histogram_prob",
+        bias=1,
+        **kwargs,
+    )
+    return Squeeze(data_list=data_list, op=op, option=option)
 
 
 def explanatory_power(df, rc_str):

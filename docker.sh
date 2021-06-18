@@ -10,10 +10,15 @@ echo MEMORY_LIMIT=${MEMORY_LIMIT}
 echo MEMORY_SWAP_LIMIT=${MEMORY_SWAP_LIMIT}
 echo CMD=${CMD}
 if [ ${CMD} == "start" ]; then
-    sudo docker run -d --name ${NAME} --restart=unless-stopped --shm-size="4g" -v $(realpath .):/${NAME} --user lizytalk \
+    sudo docker run -d --name ${NAME} --restart=unless-stopped --shm-size="4g" \
+    -v "$(realpath .)":/${NAME} --user lizytalk \
+    -v "$(realpath ~/.cache)":/home/${USER}/.cache \
+    -v "$(realpath ~/.jupyter)":/home/${USER}/.jupyter \
+    -v "$(realpath ~/.ssh)":/home/${USER}/.ssh \
     --memory ${MEMORY_LIMIT} \
     -v /mnt/mfs/mlstorage-experiments/v-zyl14:/mnt/mfs/mlstorage-experiments/v-zyl14 \
     -v /tmp:/tmp \
+    --env http_proxy="" --env https_proxy="" \
     -p ${PORT}:8888 -p ${SSH_PORT}:22 ${IMAGE} \
     zsh -c "source ~/.zshrc && cd /${NAME} && jupyter lab --ip=0.0.0.0";
     sleep 5s;
@@ -22,7 +27,6 @@ if [ ${CMD} == "start" ]; then
     sudo docker exec ${NAME} sudo bash -c "echo 'lizytalk:lizytalk'| chpasswd";
     sudo docker exec ${NAME} zsh -c "source ~/.zshrc && cd /${NAME} && pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple";
     sudo docker exec ${NAME} zsh -c "source ~/.zshrc && cd /${NAME} && direnv allow .";
-    sudo docker exec ${NAME} zsh -c "source ~/.zshrc && (mkdir ~/.cache || sudo chown -R lizytalk ~/.cache)";
 elif [ ${CMD} == "stop" ]; then
     sudo docker stop ${NAME};
     sudo docker rm ${NAME};
