@@ -4,10 +4,13 @@ import typing
 import pandas as pd
 import numpy as np
 from itertools import combinations
-
+from memory_profiler import profile
 from utility import AC
 from .hotspot_cuboid import Cuboid
 from loguru import logger
+
+
+K = 3
 
 
 class HotSpot:
@@ -49,6 +52,7 @@ class HotSpot:
         self._finished = False
         self.cuboids = [[]]  # type: List[List[Cuboid]]
 
+    @profile
     def run(self):
         if self._finished:
             logger.warning("try to rerun HotSpot")
@@ -68,7 +72,7 @@ class HotSpot:
                 for node in cuboid.best_nodes:
                     logger.debug(f'{node}')
                 self._best_nodes = list(merge(self._best_nodes, cuboid.best_nodes,
-                                              key=lambda x: x.result_score, reverse=True))
+                                              key=lambda x: x.result_score, reverse=True))[:K]
                 if len(self._best_nodes) > 0 and self._best_nodes[0].potential_score >= self.ps_upper_threshold:
                     break
             else:  # iter all cuboids, then continue

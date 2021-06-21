@@ -8,6 +8,9 @@ import time
 import hotspotpy
 
 
+K = 3
+
+
 class Cuboid(object):
     def __init__(self, hotspot: "hotspotpy.HotSpot", attribute_names: typing.Tuple[str], max_steps=None, max_time=None,
                  ps_upper_threshold=None, ps_lower_threshold=None, exploration_rate=1.414, ):
@@ -51,7 +54,7 @@ class Cuboid(object):
             if not self.run_step():
                 break
             # logger.debug(f"step {self.step_cnt}, time: {time.time() - step_tic}s")
-        self._best_nodes = sorted(self._visited_nodes, key=lambda x: x.result_score, reverse=True)
+        self._best_nodes = sorted(self._visited_nodes, key=lambda x: x.result_score, reverse=True)[:K]
         # lo = self._filter_sorted_element(self._best_nodes, self.ps_lower_threshold)
         # self._best_nodes = self._best_nodes[:lo]
         # self._best_nodes = list(filter(lambda x: x.potential_score >= self.ps_lower_threshold, self._best_nodes))

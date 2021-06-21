@@ -113,12 +113,13 @@ def load_data(file_path: Path, injection_info, toint=False):
 
 
 def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, **kwargs) -> Dict:
+    from loguru import logger
     debug = kwargs.pop('debug', False)
     toint = kwargs.pop('toint', False)
     algorithm = kwargs.pop("algorithm", "psqueeze")
     logger.remove()
     logger.add(
-        sys.stdout, level='INFO',
+        sys.stdout, level='DEBUG',
         format=f"<yellow>{file_path.name}</yellow> - {LOGURU_FORMAT}",
         backtrace=True
     )
@@ -184,12 +185,13 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
 
 
 def executor_derived(file_path_list: List[Path], output_path: Path, injection_info: pd.DataFrame, **kwargs) -> Dict:
+    from loguru import logger
     toint = kwargs.pop('toint', False)
     debug = kwargs.pop('debug', False)
     logger.remove()
     ts = file_path_list[0].name.rstrip('.a.csv')
     logger.add(
-        sys.stdout, level='INFO',
+        sys.stdout, level='DEBUG',
         format=f"<yellow>{ts}</yellow> - {LOGURU_FORMAT}",
         backtrace=True
     )
