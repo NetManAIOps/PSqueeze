@@ -30,3 +30,7 @@ output/
 .*
 !.dockerignore
 /Psqueeze-dataset/
+Psqueeze-dataset
+cases/
+notebooks/
+venv/
