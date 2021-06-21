@@ -34,7 +34,7 @@ def run_directly(df):
     tic = time.time()
     # 第一步，净化这个数据集，去掉全部为0的列
 
-    df = df.drop([i for i in range(0, len(df.values)) if df.values[i][-1] * df.values[i][-2] == 0], axis=0)
+    df = df.drop([i for i in range(0, len(df.values)) if df.iloc[i]['real'] == df.iloc[i]['predict'] == 0], axis=0)
     attribute_names = list(sorted(set(df.columns) - {'real', 'predict'}))
     for attr in attribute_names:
         df[attr] = df[attr].map(lambda _: f"{attr}={_}")

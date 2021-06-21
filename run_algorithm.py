@@ -223,7 +223,7 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
         )
     elif algorithm.lower() in {'mid'}:
         model = MID(data_list=[dfa, dfb], op=divide, **kwargs)
-    elif algorithm.lower() == "impaptr":
+    elif algorithm.lower() in {"impaptr", 'iap'}:
         model = ImpAPTr(data_list=[dfa, dfb], op=divide, **kwargs)
     elif algorithm.lower() in {"apriori", 'apr'}:
         model = AprioriRCA(data_list=[dfa, dfb], op=divide, **kwargs)
