@@ -119,7 +119,7 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
     algorithm = kwargs.pop("algorithm", "psqueeze")
     logger.remove()
     logger.add(
-        sys.stdout, level='DEBUG',
+        sys.stdout, level='INFO',
         format=f"<yellow>{file_path.name}</yellow> - {LOGURU_FORMAT}",
         backtrace=True
     )
@@ -191,7 +191,7 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
     logger.remove()
     ts = file_path_list[0].name.rstrip('.a.csv')
     logger.add(
-        sys.stdout, level='DEBUG',
+        sys.stdout, level='INFO',
         format=f"<yellow>{ts}</yellow> - {LOGURU_FORMAT}",
         backtrace=True
     )

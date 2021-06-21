@@ -4,10 +4,10 @@ import typing
 import pandas as pd
 import numpy as np
 from itertools import combinations
-from memory_profiler import profile
 from utility import AC
 from .hotspot_cuboid import Cuboid
 from loguru import logger
+# from memory_profiler import profile
 
 
 K = 3
@@ -52,7 +52,7 @@ class HotSpot:
         self._finished = False
         self.cuboids = [[]]  # type: List[List[Cuboid]]
 
-    @profile
+    # @profile
     def run(self):
         if self._finished:
             logger.warning("try to rerun HotSpot")

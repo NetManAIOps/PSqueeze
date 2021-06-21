@@ -6,6 +6,7 @@ import typing
 from loguru import logger
 import time
 import hotspotpy
+# from memory_profiler import profile
 
 
 K = 3
@@ -31,6 +32,7 @@ class Cuboid(object):
         self._layer = len(self.attribute_names)
         self.indexed_data_list = list(_.set_index(self.attribute_names).sort_index() for _ in self.hotspot.data_list)
 
+    # @profile
     def run(self):
         if self._finished:
             logger.warning(f"try to rerun {self}")
@@ -59,6 +61,10 @@ class Cuboid(object):
         # self._best_nodes = self._best_nodes[:lo]
         # self._best_nodes = list(filter(lambda x: x.potential_score >= self.ps_lower_threshold, self._best_nodes))
         self._finished = True
+        # delete unused attributes to save memory
+        self._visited_nodes = None
+        self.indexed_data_list = None
+        # self._visited_nodes = None
         logger.debug(f"{self} finished")
         return self
 
@@ -70,6 +76,7 @@ class Cuboid(object):
     def __str__(self):
         return f"Cuboid {self.attribute_names}"
 
+    # @profile
     def run_step(self):
         if self.root.wasted:
             logger.debug('MCTS exited because all nodes searched')

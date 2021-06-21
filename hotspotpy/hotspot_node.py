@@ -22,34 +22,26 @@ class HotSpotNode:
         self.has_next_action = True
         self._reward = float('-inf')
 
-        self._data_index = np.asarray(list(
+        _data_index = np.asarray(list(
             list(AttributeCombination.index_dataframe(
                 attribute_combination,
                 data
             ) for data in self.cuboid.indexed_data_list)
             for attribute_combination in self.attribute_combinations
         ))
-        self._complement_data_index = np.logical_not(np.logical_or.reduce(self._data_index, axis=0))
+        _complement_data_index = np.logical_not(np.logical_or.reduce(_data_index, axis=0))
 
-        self._data_list = list(
+        _data_list = list(
             list(data[index]
                  for data, index in zip(self.cuboid.indexed_data_list, index_list))
-            for index_list in self._data_index
+            for index_list in _data_index
         )
-        self._complement_data_list = list(
+        _complement_data_list = list(
             data[index]
-            for data, index in zip(self.cuboid.indexed_data_list, self._complement_data_index)
+            for data, index in zip(self.cuboid.indexed_data_list, _complement_data_index)
         )
-
-        self._v = None
-        self._f = None
-        self._a = None
-
-    @property
-    # @lru_cache()
-    def potential_score(self):
-        leaf_v_list, non_leaf_v = self._get_column_value('real')
-        leaf_f_list, non_leaf_f = self._get_column_value('predict')
+        leaf_v_list, non_leaf_v = self._get_column_value('real', self.hotspot.op, _data_list, _complement_data_list)
+        leaf_f_list, non_leaf_f = self._get_column_value('predict', self.hotspot.op, _data_list, _complement_data_list)
         # set_f, _ = self._get_column_value('predict', reduction=np.sum)
         # set_v, _ = self._get_column_value('real', reduction=np.sum)
         set_f = list(map(np.sum, leaf_f_list))
@@ -59,23 +51,31 @@ class HotSpotNode:
         v = np.concatenate(leaf_v_list + [non_leaf_v])
         f = np.concatenate(leaf_f_list + [non_leaf_f])
         a = np.concatenate(leaf_a_list + [non_leaf_f])
-        self._v = v
-        self._f = f
-        self._a = a
+        # self._v = v
+        # self._f = f
+        # self._a = a
         ps = np.maximum(1. - euclidean(v, a) / np.maximum(euclidean(v, f), 1e-4), 0.)
         # ps = 1. - euclidean(v, a) / np.maximum(euclidean(v, f), 1e-4)
-        return ps
+        self._potential_score = ps
 
-    @lru_cache()
-    def _get_column_value(self, column, reduction=None):
+        # self._v = None
+        # self._f = None
+        # self._a = None
+
+    @property
+    # @lru_cache()
+    def potential_score(self):
+        return self._potential_score
+
+    @staticmethod
+    def _get_column_value(column, op, data_list, complement_data_list, reduction=None):
         if reduction is None:
             reduction = lambda x: x
-        op = self.hotspot.op
         leaf_value_list = list(
             op(*(reduction(_.loc[:, column].values) for _ in attr_data_list))
-            for attr_data_list in self._data_list
+            for attr_data_list in data_list
         )
-        non_leaf_value = op(*(reduction(_.loc[:, column].values) for _ in self._complement_data_list))
+        non_leaf_value = op(*(reduction(_.loc[:, column].values) for _ in complement_data_list))
         return leaf_value_list, non_leaf_value
 
     @property
@@ -152,28 +152,24 @@ class HotSpotElement(HotSpotNode):
         assert len(self.attribute_combinations) == 1, f'This Node is not Element, {self}'
         self.attribute_combination = next(iter(self.attribute_combinations))
 
-        self._data_index = list(AttributeCombination.index_dataframe(
+        _data_index = list(AttributeCombination.index_dataframe(
             self.attribute_combination,
             data
         ) for data in self.cuboid.indexed_data_list)
-        self._complement_data_index = list(
-            np.logical_not(index) for index in self._data_index
+        _complement_data_index = list(
+            np.logical_not(index) for index in _data_index
         )
-        self._data_list = list(
+        _data_list = list(
             data[index]
-            for data, index in zip(self.cuboid.indexed_data_list, self._data_index)
+            for data, index in zip(self.cuboid.indexed_data_list, _data_index)
         )
-        self._complement_data_list = list(
+        _complement_data_list = list(
             data[index]
-            for data, index in zip(self.cuboid.indexed_data_list, self._complement_data_index)
+            for data, index in zip(self.cuboid.indexed_data_list, _complement_data_index)
         )
-
-    @property
-    @lru_cache()
-    def potential_score(self):
         # Potential Score
-        v1, v2 = self._get_column_values('real')
-        f1, f2 = self._get_column_values('predict')
+        v1, v2 = self._get_column_values('real', self.hotspot.op, _data_list, _complement_data_list)
+        f1, f2 = self._get_column_values('predict', self.hotspot.op, _data_list, _complement_data_list)
         v = np.concatenate([v1, v2])
         f = np.concatenate([f1, f2])
         f_, v_ = np.sum(f1), np.sum(v1)
@@ -181,13 +177,17 @@ class HotSpotElement(HotSpotNode):
         a1 = f1 - (f_ - v_) * f1 / np.maximum(f_, 1e-4)
         a = np.concatenate([a1, f2])
         ps = np.maximum(1. - euclidean(v, a) / np.maximum(euclidean(v, f), 1e-4), 0.)
-        return ps
 
-    @lru_cache()
-    def _get_column_values(self, column, reduction=None):
+        self._potential_score = ps
+        
+    @property
+    def potential_score(self):
+        return self._potential_score
+
+    @staticmethod
+    def _get_column_values(column, op, data_list, complement_data_list, reduction=None):
         if reduction is None:
             reduction = lambda x: x
-        op = self.hotspot.op
-        ret = (op(*(reduction(_.loc[:, column].values) for _ in self._data_list)),
-               op(*(reduction(_.loc[:, column].values) for _ in self._complement_data_list)))
+        ret = (op(*(reduction(_.loc[:, column].values) for _ in data_list)),
+               op(*(reduction(_.loc[:, column].values) for _ in complement_data_list)))
         return ret
