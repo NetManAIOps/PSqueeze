@@ -35,8 +35,10 @@ def run_directly(df):
     # 第一步，净化这个数据集，去掉全部为0的列
 
     df = df.drop([i for i in range(0, len(df.values)) if df.values[i][-1] * df.values[i][-2] == 0], axis=0)
-    dimension_number = df.shape[1] - 2;
-    print("dimension_number ", dimension_number)
+    attribute_names = list(sorted(set(df.columns) - {'real', 'predict'}))
+    for attr in attribute_names:
+        df[attr] = df[attr].map(lambda _: f"{attr}={_}")
+    print("attribute names ", attribute_names)
     real_value = np.array(df["real"])
     predict_value = np.array(df["predict"])
     bias = abs(predict_value - real_value) / real_value
@@ -46,10 +48,12 @@ def run_directly(df):
     # print("len of total ", len(bias))
     abnormal_index = get_abnormal_points(bias)
     print("len of abnormal_index ", len(abnormal_index))
-    df_abnormal = df.iloc[abnormal_index, 0:dimension_number].values
-    df_total = df.iloc[:, 0:dimension_number].values
+    df_abnormal = df.iloc[abnormal_index][attribute_names].values
+    df_total = df.iloc[:][attribute_names].values
     answer = AprioriMining(df_abnormal, df_total, abnormal_index).get_ans()
-    root_cause = ";".join("&".join([str(i)[0] + "=" + str(i) for i in abnormal_cubiod]) for abnormal_cubiod in answer)
+
+    # we have add `key=` to the values before
+    root_cause = ";".join("&".join([str(i) for i in abnormal_cubiod]) for abnormal_cubiod in answer)
     toc = time.time()
     elapsed_time = toc - tic
     return root_cause
