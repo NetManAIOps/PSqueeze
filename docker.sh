@@ -2,7 +2,7 @@
 PORT=10670
 SSH_PORT=10623
 NAME=PSQ
-IMAGE=${2:-docker.peidan.me/lizytalk/nichijou:ubuntu18.04-cuda10.2-cp3.8.5}
+IMAGE=${2:-docker.peidan.me/lizytalk/nichijou:ubuntu20.04-cp3.9.4}
 CMD=${1:-start}
 MEMORY_LIMIT="$(($(free -g | grep -oP "Mem:\s+\K\d+")-1))g"
 MEMORY_SWAP_LIMIT="-1"

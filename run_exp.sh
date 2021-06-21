@@ -59,13 +59,15 @@ run_setting() {
     -v
 }
 
+
+ALGORITHMS=${1:-"PSQ SQ ADT RAD APR HS MID IAP"}
+DATASETS=${2:-"A B5 B6 B7 B8 D"}
+
 #run_case
 #run_setting D 3 1 SQ
 #EVAL_ONLY=true
-#for alg in PSQ SQ MID IAP; do
-for alg in APR; do
-  for dataset in A B5 B6 B7 B8 D; do
-#  for dataset in D; do
+for alg in ${ALGORITHMS}; do
+  for dataset in ${DATASETS}; do
     for n_ele in 1 2 3; do
       for cuboid_layer in 1 2 3; do
         echo_and_run run_setting ${dataset} ${n_ele} ${cuboid_layer} ${alg}

@@ -16,9 +16,11 @@ from loguru import logger
 # noinspection PyProtectedMember
 from loguru._defaults import LOGURU_FORMAT
 
+from Adtributor import Adtributor
 from Apriori import AprioriRCA
 from ImpAPTr import ImpAPTr
 from MID import MID
+from hotspotpy import HotSpot
 from post_process import post_process
 from squeeze import Squeeze, SqueezeOption
 from utility import AC
@@ -147,6 +149,13 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
         model = ImpAPTr(data_list=[df], **kwargs)
     elif algorithm.lower() in {"apriori", 'apr'}:
         model = AprioriRCA(data_list=[df], **kwargs)
+    elif algorithm.lower() in {"adt", "adtributor", 'rad', 'r-adtributor', 'recursive_adtributor'}:
+        model = Adtributor([df], algorithm, derived=False)
+    elif algorithm.lower() in {"hs", "hotspot"}:
+        model = HotSpot(data_list=[df], max_steps=100,
+                        ps_upper_threshold=0.95,
+                        ps_lower_threshold=0.05,
+                        )
     else:
         raise RuntimeError(f"unknown algorithm name: {algorithm=}")
     model.run()
@@ -218,6 +227,12 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
         model = ImpAPTr(data_list=[dfa, dfb], op=divide, **kwargs)
     elif algorithm.lower() in {"apriori", 'apr'}:
         model = AprioriRCA(data_list=[dfa, dfb], op=divide, **kwargs)
+    elif algorithm.lower() in {"adt", "adtributor", 'rad', 'r-adtributor', 'recursive_adtributor'}:
+        model = Adtributor([dfa, dfb], algorithm, derived=True)
+    elif algorithm.lower() in {"hs", "hotspot"}:
+        model = HotSpot(data_list=[dfa, dfb], op=divide, max_steps=100,
+                        ps_upper_threshold=0.95,
+                        ps_lower_threshold=0.05, )
     else:
         raise RuntimeError(f"unknown algorithm name: {algorithm=}")
     model.run()
@@ -230,13 +245,14 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
 
     toc = time.time()
     elapsed_time = toc - tic
-    ep = explanatory_power(model.derived_data, root_cause)
+    # ep = explanatory_power(model.derived_data, root_cause)
     result = {
         'timestamp': timestamp,
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
-        'ep': ep,
-        'ground_truth': injection_info.loc[int(timestamp), 'set'],
+        # 'ep': ep,
+        'ground_truth': injection_info.loc[int(timestamp), 'set'] 
+        if int(timestamp) in injection_info.index else None,
         'info_collect': model.info_collect,
     }
     return result

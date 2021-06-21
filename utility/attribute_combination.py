@@ -52,7 +52,7 @@ class AttributeCombination(dict):
                 key, value = pair.split("=")
             except Exception as e:
                 print(pair, string)
-                raise e
+                raise RuntimeError(f"{pair} {string}. {e!s}")
             ret[key] = value
         return ret
 
@@ -155,7 +155,7 @@ class AttributeCombination(dict):
 
     @staticmethod
     def to_iops_2019_format(attribute_combinations: Iterable['AttributeCombination']):
-        return ";".join("&".join(_.non_any_values) for _ in attribute_combinations)
+        return ";".join("&".join(map(str, _.non_any_values)) for _ in attribute_combinations)
 
     def add(self, attribute, value) -> 'AttributeCombination':
         ret = AttributeCombination(**self)

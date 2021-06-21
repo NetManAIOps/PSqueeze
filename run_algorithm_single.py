@@ -3,13 +3,10 @@ from pprint import pprint
 
 import click
 import pandas as pd
-
-from run_algorithm import executor, executor_derived
-from ImpAPTr import ImpAPTr
-from MID import MID
+from loguru import logger
+import sys
 from post_process import post_process
-from squeeze import Squeeze, SqueezeOption
-from utility import AC
+from run_algorithm import executor, executor_derived
 
 
 @click.command('Runner')
@@ -22,6 +19,11 @@ from utility import AC
 @click.option("--output-dir", "-o", help="save outputs", default="./output")
 @click.argument("input_file_list", nargs=-1)
 def main(input_file_list, output_dir, **kwargs):
+    logger.remove()
+    logger.add(
+        sys.stdout, level="DEBUG",
+        format="[<green>{time}</green>, <blue>{level}</blue>] <white>{message}</white>"
+    )
     input_file_list = list(map(Path, input_file_list))
     output_dir = Path(output_dir)
     derived: bool = kwargs.pop('derived')
