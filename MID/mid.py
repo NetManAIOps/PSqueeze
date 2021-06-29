@@ -61,7 +61,7 @@ class MID:
                 return True
             if self.max_iterations is not None and iter_cnt > self.max_iterations:
                 return True
-            if unchanged_cnt > 100:
+            if unchanged_cnt > 10:
                 return True
             return False
         if self.__finished:
@@ -198,33 +198,52 @@ class MID:
         logger.debug(f"{op=} {ops=}")
         return op
 
+    @staticmethod
+    def safe_choice(choices):
+        if len(choices) == 0:
+            return None
+        else:
+            return random.choice(choices)
+
     def random_update(self, c: AC) -> AC:
         op = self.get_random_op(c)
         if op == 'add':
-            a = random.choice(list(filter(
+            a = self.safe_choice(list(filter(
                 lambda _: c[_] == AC.ANY,
                 self.attribute_names
             )))
-            v = random.choice(list(self.attribute_values[a]))
+            v = self.safe_choice(list(self.attribute_values[a]))
             logger.debug(f"add ({a}={v})")
-            return c.add(
-                attribute=a, value=v
-            )
+            if a is not None and v is not None:
+                return c.add(
+                    attribute=a, value=v
+                )
+            else:
+                return c
         elif op == 'swap_value':
-            a = random.choice(c.non_any_keys)
-            v = random.choice(list(set(self.attribute_values[a]) - {c[a]}))
+            a = self.safe_choice(c.non_any_keys)
+            v = self.safe_choice(list(set(self.attribute_values[a]) - {c[a]}))
             logger.debug(f"swap value ({a}={v})")
-            return c.swap(a, a, v)
+            if a is not None and v is not None:
+                return c.swap(a, a, v)
+            else:
+                return c
         elif op == 'swap_tuple':
-            a_old = random.choice(c.non_any_keys)
-            a_new = random.choice(list(set(self.attribute_names) - {a_old}))
-            v = random.choice(list(self.attribute_values[a_new]))
+            a_old = self.safe_choice(c.non_any_keys)
+            a_new = self.safe_choice(list(set(self.attribute_names) - {a_old}))
+            v = self.safe_choice(list(self.attribute_values[a_new]))
             logger.debug(f"swap tuple ({a_old}, _) to ({a_new}={v})")
-            return c.swap(a_old, a_new, v)
+            if a_old and a_new and v:
+                return c.swap(a_old, a_new, v)
+            else:
+                return c
         elif op == 'delete':
-            a = random.choice(c.non_any_keys)
+            a = self.safe_choice(c.non_any_keys)
             logger.debug(f"delete ({a}, _)")
-            return c.delete(a)
+            if a:
+                return c.delete(a)
+            else:
+                return c
         else:
             raise RuntimeError(f"unknown op: {op}")
 

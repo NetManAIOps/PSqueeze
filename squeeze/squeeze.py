@@ -77,7 +77,7 @@ class Squeeze:
     @lru_cache()
     def report(self) -> str:
         cluster_impacts = [
-            np.sum(np.abs(self._f[idx] - self._v[idx])) for idx in self.cluster_list
+            np.sum(np.abs(self._f[idx[0]] - self._v[idx[0]])) for idx in self.cluster_list
         ]
         unique_root_cause, rc_indies = np.unique(self.root_cause, return_index=True)
         cluster_impacts = [
