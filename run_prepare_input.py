@@ -14,7 +14,7 @@ from loguru import logger
 
 @click.command("Prepare inputs for the algorithms")
 @click.option(
-    '--anomaly-time', '-a', help="The minute to be analyzed", type=str, required=True,
+    '--anomaly-time', '-a', help="The minute to be analyzed", type=str, default="",
 )
 @click.option(
     "--output-metric", type=str, help="the name of output metric"
@@ -52,8 +52,14 @@ def main(
         window_length: int, granularity_minutes: int, output_dir: Path, column_names: str or None,
         fill_na: bool, derived: str, output_metric: str
 ):
-    anomaly_time: datetime = dt_parse(anomaly_time)
+    if anomaly_time != "":
+        anomaly_time: datetime = dt_parse(anomaly_time)
+    else:
+        logger.debug(f"Parse anomaly time from the filename: {input_files[0]=}")
+        anomaly_time: datetime = dt_parse(os.path.basename(input_files[0]).split('.')[0])
+    logger.info(f"{anomaly_time=}")
     output_dir: Path = Path(output_dir)
+    logger.info(f"{output_dir=}")
     if column_names is not None:
         with ThreadPoolExecutor() as executor:
             df = pd.concat(
@@ -69,6 +75,9 @@ def main(
     logger.info(f"{metric_columns=}")
     attr_columns = list(set(df.columns) - set(metric_columns) - {'timestamp'})
     logger.info(f"{attr_columns=}")
+    assert set(metric_columns) < set(df.columns), f"{df.columns=}, {metric_columns=}"
+    assert set(attr_columns) < set(df.columns), f"{df.columns=}, {attr_columns=}"
+    assert set(attr_columns) & set(metric_columns) == set(), f"{attr_columns=}, {metric_columns=}"
 
     if output_metric not in metric_columns:
         assert derived != "", "derived should be set when metric is not in metric_columns"
@@ -81,6 +90,7 @@ def main(
         assert derived[1] in {'divide', 'plus', 'minus', 'multiply'}, derived
     else:
         derived = None
+    logger.info(f"{derived=}")
 
     ac_df = df.drop(
         columns=['timestamp'] + metric_columns
