@@ -171,13 +171,17 @@ def executor(file_path: Path, output_path: Path, injection_info: pd.DataFrame, *
     toc = time.time()
     elapsed_time = toc - tic
 
+    try:
+        ground_truth = injection_info.loc[int(file_path.stem), 'set'] if int(file_path.stem) in injection_info.index else None
+    except ValueError:
+        ground_truth = None
+
     result = {
         'timestamp': timestamp,
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
         # 'ep': explanatory_power(model.derived_data, root_cause) if algorithm in {'psq', 'psqueeze'} else None,
-        'ground_truth': injection_info.loc[int(file_path.stem), 'set']
-        if int(file_path.stem) in injection_info.index else None,
+        'ground_truth': ground_truth,
         'info_collect': model.info_collect,
     }
 
