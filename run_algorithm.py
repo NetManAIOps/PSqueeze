@@ -251,14 +251,16 @@ def executor_derived(file_path_list: List[Path], output_path: Path, injection_in
 
     toc = time.time()
     elapsed_time = toc - tic
-    # ep = explanatory_power(model.derived_data, root_cause)
+    try:
+        ground_truth = injection_info.loc[int(timestamp), 'set'] if int(timestamp) in injection_info.index else None
+    except ValueError:
+        ground_truth = None
     result = {
         'timestamp': timestamp,
         'elapsed_time': elapsed_time,
         'root_cause': root_cause,
         # 'ep': ep,
-        'ground_truth': injection_info.loc[int(timestamp), 'set'] 
-        if int(timestamp) in injection_info.index else None,
+        'ground_truth': ground_truth,
         'info_collect': model.info_collect,
     }
     return result
