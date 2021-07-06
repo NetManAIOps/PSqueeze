@@ -44,13 +44,16 @@ from loguru import logger
 @click.option(
     '--granularity-minutes', type=int, default=1
 )
+@click.option(
+    '--given-predict', type=float, default=None, help="Use it as the predict rather than calculated value by averaging"
+)
 @click.option("--output-dir", "-o", type=click.Path(exists=True, dir_okay=True, file_okay=False), default=".")
 @click.option("--fill-na", is_flag=True)
 @click.argument("input-files", nargs=-1, type=str)
 def main(
         anomaly_time: str, timestamp_column: str, metric_columns: str, input_files: list[str],
         window_length: int, granularity_minutes: int, output_dir: Path, column_names: str or None,
-        fill_na: bool, derived: str, output_metric: str
+        fill_na: bool, derived: str, output_metric: str, given_predict: Optional[float]
 ):
     if anomaly_time != "":
         anomaly_time: datetime = dt_parse(anomaly_time)
@@ -119,27 +122,39 @@ def main(
         output_filename_prefix += f".{os.path.basename(input_files[0])}"
     output_filename_prefix += f".{output_metric}"
     if derived:
-        ret_df = get_ret_df_for_metric(filled_df_list, derived[0], attr_columns)
-        ret_df.to_csv(output_dir / f"{output_filename_prefix}_a.csv", index=False)
-        ret_df = get_ret_df_for_metric(filled_df_list, derived[2], attr_columns)
-        ret_df.to_csv(output_dir / f"{output_filename_prefix}_b.csv", index=False)
+        if derived[1] == 'divide':
+            ret_df_2 = get_ret_df_for_metric(filled_df_list, derived[2], attr_columns, predict=given_predict is None)
+            if given_predict is not None:
+                ret_df_2['predict'] = ret_df_2['real']
+            ret_df_2.to_csv(output_dir / f"{output_filename_prefix}.b.csv", index=False)
+            ret_df_1 = get_ret_df_for_metric(filled_df_list, derived[0], attr_columns, predict=given_predict is None)
+            if given_predict is not None:
+                ret_df_1['predict'] = ret_df_2['real'] * given_predict
+            ret_df_1.to_csv(output_dir / f"{output_filename_prefix}.a.csv", index=False)
+        else:
+            raise NotImplementedError(f"{derived=}")
     else:
         assert output_metric in metric_columns
         # Fundamental measure
-        ret_df = get_ret_df_for_metric(filled_df_list, output_metric, attr_columns)
+        ret_df = get_ret_df_for_metric(filled_df_list, output_metric, attr_columns, predict=given_predict is None)
+        if given_predict is not None:
+            ret_df['predict'] = given_predict
         ret_df.to_csv(output_dir / f"{output_filename_prefix}.csv", index=False)
 
 
-def get_ret_df_for_metric(filled_df_list: list[pd.DataFrame], metric: str, attr_columns: list[str]):
+def get_ret_df_for_metric(filled_df_list: list[pd.DataFrame], metric: str, attr_columns: list[str], predict: bool= True):
     ret_df = filled_df_list[-1].copy().fillna(0)
     ret_df['real'] = ret_df[metric]
-    historical_data = np.vstack([_[metric].values for _ in filled_df_list[:-1]])
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", category=RuntimeWarning)
-        ret_df['predict'] = np.nan_to_num(np.nanmean(historical_data, axis=0), nan=0)
-    logger.info(f"|residual|_1={np.mean(np.abs(ret_df.real - ret_df.predict))}")
-    logger.info(f"|residual|_2={np.sqrt(np.mean(np.square(ret_df.real - ret_df.predict)))}")
-    logger.info(f"|residual|_inf={np.max(ret_df.real - ret_df.predict)}")
+    if predict:
+        historical_data = np.vstack([_[metric].values for _ in filled_df_list[:-1]])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            ret_df['predict'] = np.nan_to_num(np.nanmean(historical_data, axis=0), nan=0)
+        logger.info(f"|residual|_1={np.mean(np.abs(ret_df.real - ret_df.predict))}")
+        logger.info(f"|residual|_2={np.sqrt(np.mean(np.square(ret_df.real - ret_df.predict)))}")
+        logger.info(f"|residual|_inf={np.max(ret_df.real - ret_df.predict)}")
+    else:
+        logger.info("no predict calculated")
     ret_df.drop(columns=list(set(ret_df.columns) - set(attr_columns) - {'real', 'predict'}), inplace=True)
     return ret_df
 
