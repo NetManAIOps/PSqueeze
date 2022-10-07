@@ -109,7 +109,7 @@ class MID:
         logger.info(f"clustering")
         labels = DBSCAN(
             eps=self.d, metric="precomputed",
-        ).fit_predict(distances)
+        ).fit_predict(np.nan_to_num(distances, nan=1e4))
         clusters = {}
         for label, ac in zip(labels, ec):
             if label not in clusters:
@@ -167,9 +167,9 @@ class MID:
         )
         jaccard = np.count_nonzero(
             np.logical_and(idx_a, idx_b)
-        ) / np.count_nonzero(
+        ) / (np.count_nonzero(
             np.logical_or(idx_a, idx_b)
-        )
+        ) + 1e-4)
         return (jaccard + cos) / 2
 
     @staticmethod

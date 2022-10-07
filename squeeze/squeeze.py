@@ -35,9 +35,10 @@ class Squeeze:
         self.one_dim_cluster = cluster_factory(self.option)  # DensityBased1dCluster(option)
         self.cluster_list = []  # type: List[np.ndarray]
 
-        valid_idx = np.logical_and.reduce(
-            [_.predict > 0 for _ in data_list],
-        )
+        # valid_idx = np.logical_or.reduce(
+        #     [(_.predict > 0) | (_.real > 0) for _ in data_list],
+        # )
+        valid_idx = (data_list[-1].predict > 0) | (data_list[-1].real > 0)
 
         self.data_list = list(_[valid_idx] for _ in data_list)
         self.op = op
@@ -114,14 +115,14 @@ class Squeeze:
                 )
             )
             abnormal = abnormal[idx]
-            upper_bound = self.leaf_deviation_score_with_variance[abnormal[0][0]][abnormal[0][1]]
+            upper_bound = np.abs(self.leaf_deviation_score_with_variance[abnormal[0][0]][abnormal[0][1]])
             normal = np.where(np.max(np.abs(self.leaf_deviation_score_with_variance), axis=1) < upper_bound)[0]
             return normal
         else:
             abnormal = np.sort(np.concatenate(self.cluster_list))
             idx = np.argsort(np.abs(self.leaf_deviation_score[abnormal]))
             abnormal = abnormal[idx]
-            normal = np.where(np.abs(self.leaf_deviation_score) < self.leaf_deviation_score[abnormal[0]])[0]
+            normal = np.where(np.abs(self.leaf_deviation_score) < np.abs(self.leaf_deviation_score[abnormal[0]]))[0]
             # normal = np.setdiff1d(np.arange(len(self.derived_data)), abnormal, assume_unique=True)
             # return np.intersect1d(normal, self.filtered_indices, assume_unique=True)
             return normal
@@ -281,9 +282,13 @@ class Squeeze:
                     reduction="sum", return_complement=True,
                     subset_indices=np.concatenate([indices, self.normal_indices]))
                 if len(reduced_data_p):
-                    _a1, _a2 = data_p.predict.values * (
-                            reduced_data_p.real.item() / reduced_data_p.predict.item()
-                    ), data_n.predict.values
+                    if abs(reduced_data_p.predict.item()) > 1e-4:
+                        _a1, _a2 = data_p.predict.values * (
+                                reduced_data_p.real.item() / reduced_data_p.predict.item()
+                        ), data_n.predict.values
+                    else:
+                        _a1, _a2 = data_p.predict.values + reduced_data_p.real.item(), data_n.predict.values
+
                 else:
                     # print(elements[:partition], data_p, reduced_data_p)
                     assert len(data_p) == 0

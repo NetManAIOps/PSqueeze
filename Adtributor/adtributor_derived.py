@@ -26,8 +26,8 @@ def append_list_in_a_list(list_list, list_item):
 
 
 def surprise(f, a, f_all, a_all):
-    pp = a / a_all
-    qq = f / f_all
+    pp = a / (a_all + 1e-4)
+    qq = f / (f_all + 1e-4)
     if (pp != 0) and (qq != 0):
         ss = 0.5 * (pp * math.log(2 * pp / (pp + qq), 10) + qq * math.log(2 * qq / (pp + qq), 10))
     elif pp == 0:

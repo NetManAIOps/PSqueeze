@@ -111,12 +111,15 @@ class ImpAPTr:
 
     @property
     def info_collect(self):
-        return {
-            "scores_min": min(map(
-                lambda _: self.impact_factor(list(_)[0], after=True),
-                self.root_cause
-            ))
-        }
+        try:
+            return {
+                "scores_min": min(map(
+                    lambda _: self.impact_factor(list(_)[0], after=True),
+                    self.root_cause
+                ))
+            }
+        except ValueError:
+            return {}
 
     @property
     def root_cause(self) -> List[FrozenSet[AC]]:
