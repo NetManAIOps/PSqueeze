@@ -3,7 +3,7 @@ import shlex
 import subprocess
 from datetime import datetime, timedelta
 from pathlib import Path
-
+from io import StringIO
 import click
 import pandas as pd
 from loguru import logger
@@ -66,16 +66,32 @@ def main(input_path: str):
     data_output_dir = Path("data_train_ticket")
     data_output_dir.mkdir(parents=True, exist_ok=True)
     logger.info(f"{experiment_type=}")
+    ground_truth_info_string_io = StringIO()
     if experiment_type in {
         "istio-basic-get_station-delay", "istio-basic-get-station-delay",
         "istio-basic-post_travel-delay", "pod-network-delay",
+        "istio-train-train_type-delay",
+        "istio-price-train_type-delay",
+        "istio-food-end_station-delay",
+        "istio-food-start_station-delay",
     }:
-        if experiment_type.startswith("istio-basic"):
-            target_service = "ts-basic-service"
+        if experiment_type.startswith("istio"):
+            with open(input_dir / "fault.yml", "r") as f:
+                print(f"faults.yml: \n{f.read()}", file=ground_truth_info_string_io)
+            if experiment_type.startswith("istio-basic"):
+                target_service = "ts-basic-service"
+            elif experiment_type.startswith("istio-train"):
+                target_service = "ts-train-service"
+            elif experiment_type.startswith("istio-price"):
+                target_service = "ts-price-service"
+            elif experiment_type.startswith("istio-food"):
+                target_service = "ts-food-service"
+            else:
+                raise NotImplementedError(f"{experiment_type=}")
         elif experiment_type == "pod-network-delay":
             with open(input_dir / "chaos" / "ground_truths.json", "r") as f:
                 _ground_truths = json.load(f)
-                logger.info(f"{_ground_truths=}")
+                print(f"{_ground_truths=}", file=ground_truth_info_string_io)
                 target_service = '-'.join(_ground_truths[0].split("-")[:-1])
         else:
             raise NotImplementedError
@@ -104,7 +120,8 @@ def main(input_path: str):
             return _rets
     else:
         raise NotImplementedError
-    for algorithm in ["PSQ", "SQ", "ADT", "RAD", "HS", "MID", "IAP"]:
+    for algorithm in ["PSQ", "SQ", "ADT", "RAD", "APR", "HS", "MID", "IAP"]:
+    # for algorithm in ["APR"]:  # DEBUG
         logger.info(f"Running {algorithm}")
         __rets = _run_algorithm(algorithm)
         for __ret in __rets:
@@ -113,10 +130,15 @@ def main(input_path: str):
                 "failure": input_dir.name,
                 "elapsed_time": __ret.get("elapsed_time", float("NaN")),
                 "root_cause": __ret.get("root_cause", ""),
-                "metric_name": __ret.get("metric_name", "")
+                "metric_name": __ret.get("metric_name", ""),
+                "n_rc": len(__ret.get("root_cause", "").split(";")),
             })
     ret_df = pd.DataFrame.from_records(results)
-    print(ret_df.to_csv(index=False))
+    with open(f"output/train_ticket_logs/experiments.log", "a+") as f:
+        logger.add(f)
+        logger.info(f"\n{input_dir}")
+        logger.info(f"\n{ret_df.to_csv(index=False)}")
+        logger.info(ground_truth_info_string_io.getvalue())
 
 
 if __name__ == '__main__':
