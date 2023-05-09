@@ -12,11 +12,14 @@ pip install -r requirements.txt
 A virtual environment is strongly recommended.
 
 ## Datasets
+All datasets are available at Tsinghua Cloud: https://cloud.tsinghua.edu.cn/d/aa4102a5d1614e57bc36/
 
-Datasets `A, B1, B2, B3, B4, D` are on [Tsinghua Cloud](https://cloud.tsinghua.edu.cn/f/db8495e4b7624674924c/).
-The ground truth root cause sets are in `injection_info.csv` in each subfolder.
+For simulation datasets, the ground-truth root causes are in `injection_info.csv` in each subfolder.
+
+For injection datasets, each subdirectory contains monitoring data for one fault injection. Their ground-truth root causes are indicated by the subdirectory names. 
 
 ## Usage
+### Simulation Datasets
 For convenience, `run_exp.sh` provide a script to run all experiments.
 
 Alternatively, you can run each experiment by yourself.
@@ -64,3 +67,7 @@ The config json file should contain the attribute names, e.g.:
   ]
 }
 ```
+
+### Injection Datasets
+Run this command: `python3 run_algorithms_on_train_ticket_experiment.py [path_to_injection_data]`
+For example, `python3 run_algorithms_on_train_ticket_experiment.py istio-food-end_station-delay-at-2022-10-09-23-00`
