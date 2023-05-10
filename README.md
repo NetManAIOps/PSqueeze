@@ -2,6 +2,21 @@
 Implementation and dataset for *Generic and Robust Root Cause Localization for Multi-Dimensional Data in Online Service Systems* (Accepted by Journal of Systems of Software), which extends our previous [conference version](https://github.com/netmanaiops/squeeze)
 
 Preprint: https://arxiv.org/abs/2305.03331
+Paper: https://www.sciencedirect.com/science/article/abs/pii/S0164121223001437 
+
+## Citation
+``` bibtex
+@article{li2023generic,
+  title = {Generic and Robust Root Cause Localization for Multi-Dimensional Data in Online Service Systems},
+  author = {Li, Zeyan and Chen, Junjie and Chen, Yihao and Luo, Chengyang and Zhao, Yiwei and Sun, Yongqian and Sui, Kaixin and Wang, Xiping and Liu, Dapeng and Jin, Xing and Wang, Qi and Pei, Dan},
+  year = {2023},
+  journal = {Journal of Systems and Software},
+  pages = {111748},
+  doi = {10.1016/j.jss.2023.111748},
+  keywords = {Multi-dimensional data,Online service system,Ripple effect,Root cause localization}
+}
+
+```
 
 ## Requirements
 At least `python>=3.6` is required.
