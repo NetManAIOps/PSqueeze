@@ -28,7 +28,7 @@ pip install -r requirements.txt
 A virtual environment is strongly recommended.
 
 ## Datasets
-All datasets are available at Tsinghua Cloud: https://cloud.tsinghua.edu.cn/d/aa4102a5d1614e57bc36/
+All datasets are available at [Zenodo](https://zenodo.org/record/8153849)
 
 For simulation datasets, the ground-truth root causes are in `injection_info.csv` in each subfolder.
 
